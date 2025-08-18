@@ -138,8 +138,8 @@ jobs:
         echo "🌐 Deploying Nginx Web Console to Kubernetes"
         echo "============================================="
         
-        # Create namespace if it doesn't exist
-        kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
+        # Deploy directly to existing kafka-demo namespace (same as main pipeline)
+        # Note: namespace kafka-demo should already exist from main application deployment
         
         # Deploy Nginx Web Console
         kubectl apply -f - <<EOF
