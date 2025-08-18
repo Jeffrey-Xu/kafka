@@ -103,6 +103,24 @@ jobs:
         ls -la producer/target/ || echo "Producer target not found"
         ls -la consumer/target/ || echo "Consumer target not found"
         
+        echo "=== CRITICAL: Verify Controllers in JAR ==="
+        echo "Checking Producer JAR for WebController and TestController:"
+        jar -tf producer/target/spring-kafka-producer-*.jar | grep -E "(WebController|TestController)" || echo "❌ CONTROLLERS NOT FOUND IN JAR!"
+        
+        echo "Checking Consumer JAR for WebController and TestController:"
+        jar -tf consumer/target/spring-kafka-consumer-*.jar | grep -E "(WebController|TestController)" || echo "❌ CONTROLLERS NOT FOUND IN JAR!"
+        
+        echo "=== Force recompile if controllers missing ==="
+        if ! jar -tf producer/target/spring-kafka-producer-*.jar | grep -q "WebController"; then
+          echo "🔧 RECOMPILING PRODUCER - Controllers missing"
+          mvn clean compile package -pl producer -DskipTests -B -X
+        fi
+        
+        if ! jar -tf consumer/target/spring-kafka-consumer-*.jar | grep -q "WebController"; then
+          echo "🔧 RECOMPILING CONSUMER - Controllers missing"
+          mvn clean compile package -pl consumer -DskipTests -B -X
+        fi
+        
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
