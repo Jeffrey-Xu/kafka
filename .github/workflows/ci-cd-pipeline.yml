@@ -83,10 +83,14 @@ jobs:
         
     - name: Build applications
       run: |
-        echo "Building Maven applications..."
-        mvn clean package -DskipTests -B -X
+        echo "Building Maven applications in correct order..."
+        echo "Step 1: Install parent POM and common module"
+        mvn clean install -pl common -am -DskipTests -B
+        echo "Step 2: Build all modules"
+        mvn clean package -DskipTests -B
         echo "Maven build completed"
-        ls -la */target/
+        echo "=== Build Artifacts ==="
+        find . -name "*.jar" -ls
         
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
