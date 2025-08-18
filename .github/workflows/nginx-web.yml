@@ -96,15 +96,42 @@ jobs:
       with:
         version: 'v1.28.0'
         
-    - name: Configure kubectl
+    - name: Setup Kubernetes access
       run: |
+        echo "Setting up Kubernetes access..."
         mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+        
+        # Create kubeconfig with proper YAML formatting (same as main pipeline)
+        cat > ~/.kube/config << 'EOF'
+        apiVersion: v1
+        kind: Config
+        clusters:
+        - cluster:
+            server: https://master01.ciscloudlab.link:6443
+            insecure-skip-tls-verify: true
+          name: kubernetes
+        contexts:
+        - context:
+            cluster: kubernetes
+            namespace: kafka-demo
+            user: github-actions-deployer
+          name: github-actions-deployer@kubernetes
+        current-context: github-actions-deployer@kubernetes
+        users:
+        - name: github-actions-deployer
+          user:
+            token: TOKEN_PLACEHOLDER
+        EOF
+        
+        # Replace token placeholder with actual token (same as main pipeline)
+        sed -i "s/TOKEN_PLACEHOLDER/${{ secrets.K8S_TOKEN }}/g" ~/.kube/config
+        
         chmod 600 ~/.kube/config
         
-        # Test connection
-        kubectl cluster-info
-        kubectl get nodes
+        # Verify connection (same as main pipeline)
+        echo "Testing Kubernetes connection..."
+        kubectl version --client
+        kubectl get pods -n kafka-demo
         
     - name: Deploy Nginx Web Console to Kubernetes
       run: |

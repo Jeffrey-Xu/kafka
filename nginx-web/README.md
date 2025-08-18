@@ -26,18 +26,33 @@ nginx-web/
 
 ## 🚀 Deployment
 
-### Automatic Deployment
+### Automatic Deployment (CI/CD)
 Changes to any file in this folder will automatically trigger the nginx web console deployment.
 
-### Manual Deployment
-```bash
-# Build and push image
-docker build -t jeffreyxu2025/kafka:nginx-web-console-latest .
-docker push jeffreyxu2025/kafka:nginx-web-console-latest
+**Note**: If kubectl connection fails in CI/CD, the Docker image will still be built and pushed. You can then use manual deployment.
 
-# Deploy to Kubernetes
-kubectl apply -f ../k8s/nginx-web.yaml
+### Manual Deployment
+If automatic deployment fails or you want to deploy manually:
+
+```bash
+# Option 1: Use the deployment script
+./nginx-web/deploy.sh
+
+# Option 2: Manual kubectl commands
+kubectl apply -f k8s/nginx-web.yaml
+
+# Option 3: Build and deploy locally
+docker build -t jeffreyxu2025/kafka:nginx-web-console-latest nginx-web/
+docker push jeffreyxu2025/kafka:nginx-web-console-latest
+kubectl apply -f k8s/nginx-web.yaml
 ```
+
+### Troubleshooting Deployment
+If the CI/CD deployment fails with kubectl errors:
+
+1. **Check Docker Image**: The image should still be built and available at `jeffreyxu2025/kafka:nginx-web-console-latest`
+2. **Manual Deploy**: Use `./nginx-web/deploy.sh` from a machine with kubectl access
+3. **Verify Cluster**: Ensure the Kubernetes cluster is accessible and KUBECONFIG is properly configured
 
 ## 🌐 Access URLs
 
