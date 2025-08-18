@@ -1,22 +1,24 @@
-name: Nginx Web Console CI/CD
+name: Nginx Web Console
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'nginx-web-console/**'
-      - '.github/workflows/nginx-web-console.yml'
+      - 'nginx-web/**'
+      - '.github/workflows/nginx-web.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'nginx-web-console/**'
-      - '.github/workflows/nginx-web-console.yml'
+      - 'nginx-web/**'
+      - '.github/workflows/nginx-web.yml'
   workflow_dispatch:
+
+env:
+  NGINX_IMAGE: jeffreyxu2025/kafka:nginx-web-console
 
 jobs:
   build-and-deploy-nginx:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     name: Build and Deploy Nginx Web Console
     
     steps:
@@ -35,15 +37,16 @@ jobs:
         git status
         git log --oneline -3
         
-        echo "🔍 Verify Nginx files:"
-        ls -la nginx-web-console/
-        ls -la nginx-web-console/html/
-        ls -la nginx-web-console/conf/
+        echo "🔍 Verify nginx-web files:"
+        ls -la nginx-web/
+        ls -la nginx-web/html/
+        ls -la nginx-web/conf/
         
-        echo "📋 Check HTML files:"
-        echo "Index.html size: $(wc -c < nginx-web-console/html/index.html) bytes"
-        echo "Dashboard.html size: $(wc -c < nginx-web-console/html/dashboard.html) bytes"
-        echo "Nginx.conf size: $(wc -c < nginx-web-console/conf/nginx.conf) bytes"
+        echo "📋 Check file sizes:"
+        echo "Index.html size: $(wc -c < nginx-web/html/index.html) bytes"
+        echo "Dashboard.html size: $(wc -c < nginx-web/html/dashboard.html) bytes"
+        echo "Nginx.conf size: $(wc -c < nginx-web/conf/nginx.conf) bytes"
+        echo "Dockerfile size: $(wc -c < nginx-web/Dockerfile) bytes"
         
         echo "✅ Nginx web console files verified"
         
@@ -72,19 +75,19 @@ jobs:
         
         # Verify files before build
         echo "📁 Final verification before Docker build:"
-        find nginx-web-console/ -type f -name "*.html" -o -name "*.conf" | head -10
+        find nginx-web/ -type f -name "*.html" -o -name "*.conf" -o -name "Dockerfile" | head -10
         
-        # Build and push nginx image to Docker Hub (same as main pipeline)
+        # Build and push nginx image to Docker Hub
         echo "🚀 Building and pushing to Docker Hub..."
         docker buildx build \
           --no-cache \
           --pull \
           --platform linux/amd64 \
-          -f nginx-web-console/Dockerfile \
+          -f nginx-web/Dockerfile \
           -t jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG \
           -t jeffreyxu2025/kafka:nginx-web-console-latest \
           --push \
-          nginx-web-console/
+          nginx-web/
           
         echo "✅ Nginx Web Console image built and pushed successfully"
         

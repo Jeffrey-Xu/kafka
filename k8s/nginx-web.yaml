@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-web-console
+  name: nginx-web
   namespace: kafka-demo
   labels:
-    app: nginx-web-console
+    app: nginx-web
     component: web-frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx-web-console
+      app: nginx-web
   template:
     metadata:
       labels:
-        app: nginx-web-console
+        app: nginx-web
         component: web-frontend
     spec:
       containers:
       - name: nginx
-        image: jeffreyxu2025/kafka:nginx-web-console-latest
+        image: jeffreyxu2025/kafka:nginx-web-latest
         ports:
         - containerPort: 80
           name: http
@@ -57,13 +57,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-web-console-service
+  name: nginx-web-service
   namespace: kafka-demo
   labels:
-    app: nginx-web-console
+    app: nginx-web
 spec:
   selector:
-    app: nginx-web-console
+    app: nginx-web
   ports:
   - name: http
     port: 80
@@ -75,7 +75,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: nginx-web-console-ingress
+  name: nginx-web-ingress
   namespace: kafka-demo
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -91,6 +91,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: nginx-web-console-service
+            name: nginx-web-service
             port:
               number: 80

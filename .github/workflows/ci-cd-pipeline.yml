@@ -3,8 +3,18 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - 'nginx-web/**'
+      - '.github/workflows/nginx-web.yml'
+      - 'README.md'
+      - 'docs/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'nginx-web/**'
+      - '.github/workflows/nginx-web.yml'
+      - 'README.md'
+      - 'docs/**'
 
 env:
   DOCKER_HUB_USERNAME: jeffreyxu2025
