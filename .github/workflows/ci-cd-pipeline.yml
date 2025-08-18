@@ -120,35 +120,82 @@ jobs:
         echo "Verifying Docker Hub authentication..."
         docker info
         
+    - name: Verify Docker build context
+      run: |
+        echo "=== Docker Build Context Verification ==="
+        echo "Current directory: $(pwd)"
+        echo "Files in root:"
+        ls -la
+        echo ""
+        echo "Producer target directory:"
+        ls -la producer/target/ || echo "❌ Producer target not found"
+        echo ""
+        echo "Consumer target directory:"
+        ls -la consumer/target/ || echo "❌ Consumer target not found"
+        echo ""
+        echo "Producer Dockerfile:"
+        cat producer/Dockerfile
+        echo ""
+        echo "Consumer Dockerfile:"
+        cat consumer/Dockerfile
+        
     - name: Build and push Producer image
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Building Producer image..."
-        echo "Image will be tagged as: ${{ env.PRODUCER_IMAGE }}:$IMAGE_TAG"
+        echo "=== Building Producer Image ==="
+        echo "Image will be tagged as: jeffreyxu2025/kafka:producer-$IMAGE_TAG"
+        echo "Image will be tagged as: jeffreyxu2025/kafka:producer-latest"
+        
+        # Verify JAR file exists
+        if [ ! -f producer/target/spring-kafka-producer-*.jar ]; then
+          echo "❌ Producer JAR file not found!"
+          echo "Contents of producer/target/:"
+          ls -la producer/target/ || echo "Target directory doesn't exist"
+          exit 1
+        fi
+        
+        echo "✅ Producer JAR file found"
+        ls -la producer/target/spring-kafka-producer-*.jar
+        
+        # Build and push image
         docker buildx build \
           --platform linux/amd64 \
           -f producer/Dockerfile \
-          -t ${{ env.PRODUCER_IMAGE }}:$IMAGE_TAG \
-          -t ${{ env.PRODUCER_IMAGE }}:latest \
+          -t jeffreyxu2025/kafka:producer-$IMAGE_TAG \
+          -t jeffreyxu2025/kafka:producer-latest \
           --push \
           .
-        echo "Producer image build completed"
+        echo "✅ Producer image build completed"
         
     - name: Build and push Consumer image
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Building Consumer image..."
-        echo "Image will be tagged as: ${{ env.CONSUMER_IMAGE }}:$IMAGE_TAG"
+        echo "=== Building Consumer Image ==="
+        echo "Image will be tagged as: jeffreyxu2025/kafka:consumer-$IMAGE_TAG"
+        echo "Image will be tagged as: jeffreyxu2025/kafka:consumer-latest"
+        
+        # Verify JAR file exists
+        if [ ! -f consumer/target/spring-kafka-consumer-*.jar ]; then
+          echo "❌ Consumer JAR file not found!"
+          echo "Contents of consumer/target/:"
+          ls -la consumer/target/ || echo "Target directory doesn't exist"
+          exit 1
+        fi
+        
+        echo "✅ Consumer JAR file found"
+        ls -la consumer/target/spring-kafka-consumer-*.jar
+        
+        # Build and push image
         docker buildx build \
           --platform linux/amd64 \
           -f consumer/Dockerfile \
-          -t ${{ env.CONSUMER_IMAGE }}:$IMAGE_TAG \
-          -t ${{ env.CONSUMER_IMAGE }}:latest \
+          -t jeffreyxu2025/kafka:consumer-$IMAGE_TAG \
+          -t jeffreyxu2025/kafka:consumer-latest \
           --push \
           .
-        echo "Consumer image build completed"
+        echo "✅ Consumer image build completed"
 
   deploy:
     needs: build-and-push
@@ -164,11 +211,22 @@ jobs:
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        echo "=== Updating Kubernetes Manifests ==="
+        echo "Using image tag: $IMAGE_TAG"
+        
         # Update producer deployment
-        sed -i "s|IMAGE_PLACEHOLDER|${{ env.PRODUCER_IMAGE }}:$IMAGE_TAG|g" k8s/producer/deployment.yaml
+        sed -i "s|IMAGE_PLACEHOLDER|jeffreyxu2025/kafka:producer-$IMAGE_TAG|g" k8s/producer/deployment.yaml
+        echo "✅ Updated producer deployment manifest"
         
         # Update consumer deployment
-        sed -i "s|IMAGE_PLACEHOLDER|${{ env.CONSUMER_IMAGE }}:$IMAGE_TAG|g" k8s/consumer/deployment.yaml
+        sed -i "s|IMAGE_PLACEHOLDER|jeffreyxu2025/kafka:consumer-$IMAGE_TAG|g" k8s/consumer/deployment.yaml
+        echo "✅ Updated consumer deployment manifest"
+        
+        # Verify updates
+        echo "Producer deployment image:"
+        grep "image:" k8s/producer/deployment.yaml
+        echo "Consumer deployment image:"
+        grep "image:" k8s/consumer/deployment.yaml
         
     - name: Setup SSH key
       run: |
