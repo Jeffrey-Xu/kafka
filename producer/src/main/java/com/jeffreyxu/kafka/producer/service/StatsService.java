@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicDouble;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Service for tracking and providing producer statistics.
@@ -35,7 +35,7 @@ public class StatsService {
     private Timer processingTimer;
     private final AtomicLong totalMessagesSent = new AtomicLong(0);
     private final AtomicLong totalErrors = new AtomicLong(0);
-    private final AtomicDouble averageLatency = new AtomicDouble(0.0);
+    private final AtomicReference<Double> averageLatency = new AtomicReference<>(0.0);
 
     @PostConstruct
     public void initMetrics() {
