@@ -50,18 +50,16 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
-    - name: Login to GitHub Container Registry
+    - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        username: jeffreyxu2025
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
       
-    - name: Check registry access
+    - name: Verify Docker login
       run: |
-        echo "✅ Using GitHub Container Registry (ghcr.io)"
-        echo "✅ No additional secrets required"
-        echo "✅ Automatic authentication with GITHUB_TOKEN"
+        echo "✅ Using Docker Hub with jeffreyxu2025 account"
+        echo "✅ Same credentials as main CI/CD pipeline"
         
     - name: Build and push Nginx Web Console image
       run: |
@@ -76,15 +74,15 @@ jobs:
         echo "📁 Final verification before Docker build:"
         find nginx-web-console/ -type f -name "*.html" -o -name "*.conf" | head -10
         
-        # Build and push nginx image to GitHub Container Registry
-        echo "🚀 Building and pushing to GitHub Container Registry..."
+        # Build and push nginx image to Docker Hub (same as main pipeline)
+        echo "🚀 Building and pushing to Docker Hub..."
         docker buildx build \
           --no-cache \
           --pull \
           --platform linux/amd64 \
           -f nginx-web-console/Dockerfile \
-          -t ghcr.io/${{ github.repository_owner }}/kafka-nginx-web-console:$IMAGE_TAG \
-          -t ghcr.io/${{ github.repository_owner }}/kafka-nginx-web-console:latest \
+          -t jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG \
+          -t jeffreyxu2025/kafka:nginx-web-console-latest \
           --push \
           nginx-web-console/
           
@@ -138,7 +136,7 @@ jobs:
             spec:
               containers:
               - name: nginx
-                image: ghcr.io/${{ github.repository_owner }}/kafka-nginx-web-console:latest
+                image: jeffreyxu2025/kafka:nginx-web-console-latest
                 ports:
                 - containerPort: 80
                   name: http
