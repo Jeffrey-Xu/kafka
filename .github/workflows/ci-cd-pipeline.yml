@@ -225,21 +225,203 @@ jobs:
         echo "Consumer deployment image:"
         grep "image:" k8s/consumer/deployment.yaml
         
-    - name: Deployment notification
+    - name: Setup Kubernetes access
       run: |
-        echo "🎉 SUCCESS! Docker images built and pushed to Docker Hub!"
-        echo ""
-        echo "📦 Available Images:"
-        echo "  - jeffreyxu2025/kafka:producer-latest"
-        echo "  - jeffreyxu2025/kafka:consumer-latest"
-        echo ""
-        echo "🚀 Ready for deployment to Kubernetes cluster:"
-        echo "  - Host: 52.90.236.10"
-        echo "  - Namespace: kafka-demo"
-        echo "  - Domain: kafka-demo.ciscloudlab.link"
-        echo ""
-        echo "✅ CI/CD Pipeline completed successfully!"
-        echo "   Next: Manual deployment to Kubernetes"
+        echo "Setting up Kubernetes access..."
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        
+        # Verify connection
+        kubectl version --client
+        kubectl get nodes
+        
+    - name: Deploy to Kubernetes
+      run: |
+        echo "🚀 Deploying applications to Kubernetes cluster..."
+        
+        # Ensure namespace exists
+        kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Deploy Producer
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: spring-kafka-producer
+          namespace: kafka-demo
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: spring-kafka-producer
+          template:
+            metadata:
+              labels:
+                app: spring-kafka-producer
+            spec:
+              containers:
+              - name: producer
+                image: jeffreyxu2025/kafka:producer-latest
+                ports:
+                - containerPort: 8080
+                env:
+                - name: SPRING_PROFILES_ACTIVE
+                  value: kubernetes
+                - name: SPRING_DATASOURCE_URL
+                  value: jdbc:mysql://mysql-service:3306/kafka_demo
+                - name: SPRING_DATASOURCE_USERNAME
+                  value: kafka_user
+                - name: SPRING_DATASOURCE_PASSWORD
+                  value: kafka_password
+                - name: KAFKA_BOOTSTRAP_SERVERS
+                  value: "52.91.177.171:9092"
+                resources:
+                  requests:
+                    memory: 256Mi
+                    cpu: 100m
+                  limits:
+                    memory: 512Mi
+                    cpu: 200m
+                livenessProbe:
+                  httpGet:
+                    path: /actuator/health
+                    port: 8080
+                  initialDelaySeconds: 90
+                  periodSeconds: 30
+                readinessProbe:
+                  httpGet:
+                    path: /actuator/health
+                    port: 8080
+                  initialDelaySeconds: 60
+                  periodSeconds: 10
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: producer-service
+          namespace: kafka-demo
+        spec:
+          selector:
+            app: spring-kafka-producer
+          ports:
+          - port: 8080
+            targetPort: 8080
+          type: ClusterIP
+        EOF
+        
+        # Deploy Consumer
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: spring-kafka-consumer
+          namespace: kafka-demo
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: spring-kafka-consumer
+          template:
+            metadata:
+              labels:
+                app: spring-kafka-consumer
+            spec:
+              containers:
+              - name: consumer
+                image: jeffreyxu2025/kafka:consumer-latest
+                ports:
+                - containerPort: 8081
+                env:
+                - name: SPRING_PROFILES_ACTIVE
+                  value: kubernetes
+                - name: SPRING_DATASOURCE_URL
+                  value: jdbc:mysql://mysql-service:3306/kafka_demo
+                - name: SPRING_DATASOURCE_USERNAME
+                  value: kafka_user
+                - name: SPRING_DATASOURCE_PASSWORD
+                  value: kafka_password
+                - name: KAFKA_BOOTSTRAP_SERVERS
+                  value: "52.91.177.171:9092"
+                resources:
+                  requests:
+                    memory: 256Mi
+                    cpu: 100m
+                  limits:
+                    memory: 512Mi
+                    cpu: 200m
+                livenessProbe:
+                  httpGet:
+                    path: /api/consumer/health
+                    port: 8081
+                  initialDelaySeconds: 90
+                  periodSeconds: 30
+                readinessProbe:
+                  httpGet:
+                    path: /api/consumer/health
+                    port: 8081
+                  initialDelaySeconds: 60
+                  periodSeconds: 10
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: consumer-service
+          namespace: kafka-demo
+        spec:
+          selector:
+            app: spring-kafka-consumer
+          ports:
+          - port: 8081
+            targetPort: 8081
+          type: ClusterIP
+        EOF
+        
+        # Deploy Ingress
+        kubectl apply -f - <<EOF
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: kafka-demo-ingress
+          namespace: kafka-demo
+          annotations:
+            nginx.ingress.kubernetes.io/rewrite-target: /
+        spec:
+          rules:
+          - host: kafka-demo.ciscloudlab.link
+            http:
+              paths:
+              - path: /api/producer
+                pathType: Prefix
+                backend:
+                  service:
+                    name: producer-service
+                    port:
+                      number: 8080
+              - path: /api/consumer
+                pathType: Prefix
+                backend:
+                  service:
+                    name: consumer-service
+                    port:
+                      number: 8081
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: producer-service
+                    port:
+                      number: 8080
+        EOF
+        
+        # Wait for deployments to be ready
+        echo "⏳ Waiting for deployments to be ready..."
+        kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
+        kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
+        
+        # Show final status
+        echo "✅ Deployment completed!"
+        kubectl get all -n kafka-demo
 
         
     - name: Verify deployment
