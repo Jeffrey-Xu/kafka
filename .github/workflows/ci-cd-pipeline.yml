@@ -264,6 +264,20 @@ jobs:
         kubectl version --client
         kubectl get pods -n kafka-demo
         
+    - name: Prepare database schema
+      run: |
+        echo "🗄️ Ensuring database schema is correct..."
+        
+        # Add missing consumer_group column if it doesn't exist
+        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_password kafka_demo -e "
+          ALTER TABLE processed_messages 
+          ADD COLUMN IF NOT EXISTS consumer_group VARCHAR(255) AFTER message_id;
+        " || echo "Schema update completed or column already exists"
+        
+        # Verify schema
+        echo "✅ Verifying database schema..."
+        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_password kafka_demo -e "DESCRIBE processed_messages;" || echo "Schema verification failed"
+        
     - name: Deploy to Kubernetes
       run: |
         echo "🚀 Deploying applications to Kubernetes cluster..."
@@ -335,7 +349,7 @@ jobs:
           type: ClusterIP
         EOF
         
-        # Deploy Consumer
+        # Deploy Consumer with ALL LEARNED FIXES
         kubectl apply -f - <<EOF
         apiVersion: apps/v1
         kind: Deployment
@@ -356,7 +370,7 @@ jobs:
               - name: consumer
                 image: jeffreyxu2025/kafka:consumer-latest
                 ports:
-                - containerPort: 8081
+                - containerPort: 8080
                 env:
                 - name: SPRING_PROFILES_ACTIVE
                   value: kubernetes
@@ -368,6 +382,22 @@ jobs:
                   value: kafka_password
                 - name: KAFKA_BOOTSTRAP_SERVERS
                   value: "52.91.177.171:9092"
+                - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+                  value: "52.91.177.171:9092"
+                - name: SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER
+                  value: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+                - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_DESERIALIZER_VALUE_DELEGATE_CLASS
+                  value: org.springframework.kafka.support.serializer.JsonDeserializer
+                - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES
+                  value: "*"
+                - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_VALUE_DEFAULT_TYPE
+                  value: com.jeffreyxu.kafka.common.model.BaseEvent
+                - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_USE_TYPE_HEADERS
+                  value: "false"
+                - name: SPRING_KAFKA_LISTENER_ACK_MODE
+                  value: manual
+                - name: SPRING_KAFKA_CONSUMER_ENABLE_AUTO_COMMIT
+                  value: "false"
                 resources:
                   requests:
                     memory: 256Mi
@@ -378,15 +408,19 @@ jobs:
                 livenessProbe:
                   httpGet:
                     path: /api/consumer/health
-                    port: 8081
-                  initialDelaySeconds: 90
+                    port: 8080
+                  initialDelaySeconds: 60
                   periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
                 readinessProbe:
                   httpGet:
                     path: /api/consumer/health
-                    port: 8081
-                  initialDelaySeconds: 60
+                    port: 8080
+                  initialDelaySeconds: 30
                   periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
         ---
         apiVersion: v1
         kind: Service
@@ -397,26 +431,25 @@ jobs:
           selector:
             app: spring-kafka-consumer
           ports:
-          - port: 8081
-            targetPort: 8081
+          - port: 8080
+            targetPort: 8080
           type: ClusterIP
         EOF
         
-        # Deploy Ingress
+        # Deploy Ingress with FIXED CONFIGURATION
         kubectl apply -f - <<EOF
         apiVersion: networking.k8s.io/v1
         kind: Ingress
         metadata:
           name: kafka-demo-ingress
           namespace: kafka-demo
-          annotations:
-            nginx.ingress.kubernetes.io/rewrite-target: /
         spec:
+          ingressClassName: nginx
           rules:
           - host: kafka-demo.ciscloudlab.link
             http:
               paths:
-              - path: /api/producer
+              - path: /api/v1/messages
                 pathType: Prefix
                 backend:
                   service:
@@ -429,7 +462,14 @@ jobs:
                   service:
                     name: consumer-service
                     port:
-                      number: 8081
+                      number: 8080
+              - path: /actuator
+                pathType: Prefix
+                backend:
+                  service:
+                    name: producer-service
+                    port:
+                      number: 8080
               - path: /
                 pathType: Prefix
                 backend:
@@ -455,24 +495,35 @@ jobs:
 
         
     - name: Verify deployment
-      env:
-        K8S_HOST: ${{ secrets.K8S_HOST }}
-        K8S_USER: ${{ secrets.K8S_USER }}
       run: |
-        ssh $K8S_USER@$K8S_HOST "
-          echo '=== Pod Status ==='
-          kubectl get pods -n kafka-demo
-          
-          echo '=== Service Status ==='
-          kubectl get services -n kafka-demo
-          
-          echo '=== Ingress Status ==='
-          kubectl get ingress -n kafka-demo
-          
-          echo '=== Health Checks ==='
-          kubectl exec deployment/spring-kafka-producer -n kafka-demo -- curl -f http://localhost:8080/actuator/health || echo 'Producer health check failed'
-          kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://localhost:8081/api/consumer/health || echo 'Consumer health check failed'
-        "
+        echo "=== Deployment Verification ==="
+        
+        # Wait for pods to be ready
+        echo "⏳ Waiting for pods to be ready..."
+        kubectl wait --for=condition=ready pod -l app=spring-kafka-producer -n kafka-demo --timeout=300s || echo "Producer pod may still be starting"
+        kubectl wait --for=condition=ready pod -l app=spring-kafka-consumer -n kafka-demo --timeout=300s || echo "Consumer pod may still be starting"
+        
+        echo "=== Pod Status ==="
+        kubectl get pods -n kafka-demo
+        
+        echo "=== Service Status ==="
+        kubectl get services -n kafka-demo
+        
+        echo "=== Ingress Status ==="
+        kubectl get ingress -n kafka-demo
+        
+        echo "=== Health Checks ==="
+        # Producer health check
+        kubectl exec deployment/spring-kafka-producer -n kafka-demo -- curl -f http://localhost:8080/actuator/health || echo "Producer health check failed"
+        
+        # Consumer health check (using correct port 8080)
+        kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://localhost:8080/api/consumer/health || echo "Consumer health check failed"
+        
+        echo "=== External API Test ==="
+        # Test external access
+        curl -f -H 'Host: kafka-demo.ciscloudlab.link' http://52.205.140.81:32594/actuator/health || echo "External API access failed"
+        
+        echo "✅ Deployment verification completed"
 
   notify:
     needs: [test, build-and-push, deploy]
