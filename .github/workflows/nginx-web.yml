@@ -69,16 +69,16 @@ jobs:
         echo "🌐 Building Nginx Web Console Docker Image"
         echo "=========================================="
         
-        # Set image tag
-        IMAGE_TAG=${GITHUB_SHA::7}
+        # Set image tag with timestamp to force new image
+        IMAGE_TAG=${GITHUB_SHA::7}-$(date +%s)
         echo "Image tag: $IMAGE_TAG"
         
         # Verify files before build
         echo "📁 Final verification before Docker build:"
         find nginx-web/ -type f -name "*.html" -o -name "*.conf" -o -name "Dockerfile" | head -10
         
-        # Build and push nginx image to Docker Hub
-        echo "🚀 Building and pushing to Docker Hub..."
+        # Build and push nginx image to Docker Hub with unique tag
+        echo "🚀 Building and pushing to Docker Hub with unique tag..."
         docker buildx build \
           --no-cache \
           --pull \
@@ -90,6 +90,7 @@ jobs:
           nginx-web/
           
         echo "✅ Nginx Web Console image built and pushed successfully"
+        echo "New image: jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG"
         
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
@@ -141,7 +142,7 @@ jobs:
         # Deploy directly to existing kafka-demo namespace (same as main pipeline)
         # Note: namespace kafka-demo should already exist from main application deployment
         
-        # Deploy Nginx Web Console
+        # Deploy Nginx Web Console with unique image tag
         kubectl apply -f - <<EOF
         apiVersion: apps/v1
         kind: Deployment
@@ -153,6 +154,7 @@ jobs:
             component: web-frontend
           annotations:
             date: "$(date +%s)"
+            deployment.kubernetes.io/revision: "$(date +%s)"
         spec:
           replicas: 1
           selector:
@@ -163,10 +165,13 @@ jobs:
               labels:
                 app: nginx-web-console
                 component: web-frontend
+              annotations:
+                date: "$(date +%s)"
             spec:
               containers:
               - name: nginx
-                image: jeffreyxu2025/kafka:nginx-web-console-latest
+                image: jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG
+                imagePullPolicy: Always
                 ports:
                 - containerPort: 8080
                   name: http
