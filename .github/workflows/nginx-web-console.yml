@@ -1,0 +1,221 @@
+name: Nginx Web Console CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'nginx-web-console/**'
+      - '.github/workflows/nginx-web-console.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'nginx-web-console/**'
+      - '.github/workflows/nginx-web-console.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy-nginx:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    name: Build and Deploy Nginx Web Console
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        clean: true
+        
+    - name: Verify Nginx Web Console files
+      run: |
+        echo "🌐 NGINX WEB CONSOLE BUILD"
+        echo "=========================="
+        
+        echo "📊 Git Status:"
+        git status
+        git log --oneline -3
+        
+        echo "🔍 Verify Nginx files:"
+        ls -la nginx-web-console/
+        ls -la nginx-web-console/html/
+        ls -la nginx-web-console/conf/
+        
+        echo "📋 Check HTML files:"
+        echo "Index.html size: $(wc -c < nginx-web-console/html/index.html) bytes"
+        echo "Dashboard.html size: $(wc -c < nginx-web-console/html/dashboard.html) bytes"
+        echo "Nginx.conf size: $(wc -c < nginx-web-console/conf/nginx.conf) bytes"
+        
+        echo "✅ Nginx web console files verified"
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Build and push Nginx Web Console image
+      run: |
+        echo "🌐 Building Nginx Web Console Docker Image"
+        echo "=========================================="
+        
+        # Set image tag
+        IMAGE_TAG=${GITHUB_SHA::7}
+        echo "Image tag: $IMAGE_TAG"
+        
+        # Verify files before build
+        echo "📁 Final verification before Docker build:"
+        find nginx-web-console/ -type f -name "*.html" -o -name "*.conf" | head -10
+        
+        # Build and push nginx image
+        docker buildx build \
+          --no-cache \
+          --pull \
+          --platform linux/amd64 \
+          -f nginx-web-console/Dockerfile \
+          -t jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG \
+          -t jeffreyxu2025/kafka:nginx-web-console-latest \
+          --push \
+          nginx-web-console/
+          
+        echo "✅ Nginx Web Console image built and pushed successfully"
+        
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        
+        # Test connection
+        kubectl cluster-info
+        kubectl get nodes
+        
+    - name: Deploy Nginx Web Console to Kubernetes
+      run: |
+        echo "🌐 Deploying Nginx Web Console to Kubernetes"
+        echo "============================================="
+        
+        # Create namespace if it doesn't exist
+        kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Deploy Nginx Web Console
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx-web-console
+          namespace: kafka-demo
+          labels:
+            app: nginx-web-console
+            component: web-frontend
+          annotations:
+            date: "$(date +%s)"
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: nginx-web-console
+          template:
+            metadata:
+              labels:
+                app: nginx-web-console
+                component: web-frontend
+            spec:
+              containers:
+              - name: nginx
+                image: jeffreyxu2025/kafka:nginx-web-console-latest
+                ports:
+                - containerPort: 80
+                  name: http
+                resources:
+                  requests:
+                    memory: "64Mi"
+                    cpu: "50m"
+                  limits:
+                    memory: "128Mi"
+                    cpu: "100m"
+                livenessProbe:
+                  httpGet:
+                    path: /nginx-health
+                    port: 80
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+                readinessProbe:
+                  httpGet:
+                    path: /nginx-health
+                    port: 80
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+                env:
+                - name: NGINX_HOST
+                  value: "localhost"
+                - name: NGINX_PORT
+                  value: "80"
+              restartPolicy: Always
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nginx-web-console-service
+          namespace: kafka-demo
+          labels:
+            app: nginx-web-console
+        spec:
+          selector:
+            app: nginx-web-console
+          ports:
+          - name: http
+            port: 80
+            targetPort: 80
+            protocol: TCP
+          type: ClusterIP
+        ---
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: nginx-web-console-ingress
+          namespace: kafka-demo
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            nginx.ingress.kubernetes.io/ssl-redirect: "false"
+            nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+        spec:
+          rules:
+          - host: kafka-web.ciscloudlab.link
+            http:
+              paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: nginx-web-console-service
+                    port:
+                      number: 80
+        EOF
+        
+        # Wait for deployment
+        echo "⏳ Waiting for nginx deployment to be ready..."
+        kubectl rollout status deployment/nginx-web-console -n kafka-demo --timeout=300s
+        
+        # Show status
+        echo "✅ Nginx Web Console deployment completed!"
+        echo "=== Nginx Pods ==="
+        kubectl get pods -n kafka-demo -l app=nginx-web-console
+        echo "=== Nginx Service ==="
+        kubectl get service nginx-web-console-service -n kafka-demo
+        echo "=== Nginx Ingress ==="
+        kubectl get ingress nginx-web-console-ingress -n kafka-demo
+        
+        echo "🌐 Nginx Web Console accessible at: http://kafka-web.ciscloudlab.link/"
