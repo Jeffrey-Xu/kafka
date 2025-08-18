@@ -52,18 +52,18 @@ public class StatsService {
             .description("Time taken to process and send messages")
             .register(meterRegistry);
 
-        // Register gauges
-        Gauge.builder("kafka.producer.messages.total")
+        // Register gauges with correct syntax
+        Gauge.builder("kafka.producer.messages.total", this, StatsService::getTotalMessagesSent)
             .description("Total messages sent")
-            .register(meterRegistry, this, StatsService::getTotalMessagesSent);
+            .register(meterRegistry);
 
-        Gauge.builder("kafka.producer.success.rate")
+        Gauge.builder("kafka.producer.success.rate", this, StatsService::getSuccessRate)
             .description("Success rate percentage")
-            .register(meterRegistry, this, StatsService::getSuccessRate);
+            .register(meterRegistry);
 
-        Gauge.builder("kafka.producer.average.latency")
+        Gauge.builder("kafka.producer.average.latency", this, StatsService::getAverageLatencyValue)
             .description("Average processing latency in milliseconds")
-            .register(meterRegistry, this, StatsService::getAverageLatencyValue);
+            .register(meterRegistry);
 
         // Load initial stats from database
         loadInitialStats();
