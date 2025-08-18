@@ -10,18 +10,14 @@ COPY conf/nginx.conf /etc/nginx/nginx.conf
 # Copy web application files
 COPY html/ /usr/share/nginx/html/
 
-# Create nginx user and set permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
+# Create necessary directories and set permissions for non-root user
+RUN mkdir -p /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp /tmp/uwsgi_temp /tmp/scgi_temp && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
     chown -R nginx:nginx /etc/nginx/conf.d && \
-    # Create directories for nginx to write to
-    mkdir -p /var/cache/nginx/client_temp && \
-    mkdir -p /var/cache/nginx/proxy_temp && \
-    mkdir -p /var/cache/nginx/fastcgi_temp && \
-    mkdir -p /var/cache/nginx/uwsgi_temp && \
-    mkdir -p /var/cache/nginx/scgi_temp && \
-    chown -R nginx:nginx /var/cache/nginx
+    chown -R nginx:nginx /tmp && \
+    chmod -R 755 /tmp
 
 # Switch to non-root user
 USER nginx
