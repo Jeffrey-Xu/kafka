@@ -168,6 +168,18 @@ jobs:
         
         echo "🎉 ALL CONTROLLERS VERIFIED IN JAR FILES!"
         
+    - name: Build Nginx Web Console
+      run: |
+        echo "🌐 BUILDING NGINX WEB CONSOLE"
+        echo "============================"
+        
+        echo "📁 Verify nginx files:"
+        ls -la nginx-web-console/
+        ls -la nginx-web-console/html/
+        ls -la nginx-web-console/conf/
+        
+        echo "✅ Nginx web console files ready for Docker build"
+        
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       
@@ -279,6 +291,31 @@ jobs:
           -t jeffreyxu2025/kafka:consumer-latest \
           --push \
           .
+          
+    - name: Build and push Nginx Web Console image
+      run: |
+        echo "🌐 Building Nginx Web Console Docker Image"
+        echo "=========================================="
+        
+        # Set image tag
+        IMAGE_TAG=${GITHUB_SHA::7}
+        echo "Image tag: $IMAGE_TAG"
+        
+        # Verify nginx files before build
+        echo "📁 Nginx files verification:"
+        ls -la nginx-web-console/html/
+        ls -la nginx-web-console/conf/
+        
+        # Build and push nginx image
+        docker buildx build \
+          --no-cache \
+          --pull \
+          --platform linux/amd64 \
+          -f nginx-web-console/Dockerfile \
+          -t jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG \
+          -t jeffreyxu2025/kafka:nginx-web-console-latest \
+          --push \
+          nginx-web-console/
         echo "✅ Consumer image build completed"
 
   deploy:
@@ -564,10 +601,110 @@ jobs:
                       number: 8080
         EOF
         
+        # Deploy Nginx Web Console
+        echo "🌐 Deploying Nginx Web Console..."
+        kubectl apply -f - <<EOF
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx-web-console
+          namespace: kafka-demo
+          labels:
+            app: nginx-web-console
+            component: web-frontend
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: nginx-web-console
+          template:
+            metadata:
+              labels:
+                app: nginx-web-console
+                component: web-frontend
+            spec:
+              containers:
+              - name: nginx
+                image: jeffreyxu2025/kafka:nginx-web-console-latest
+                ports:
+                - containerPort: 80
+                  name: http
+                resources:
+                  requests:
+                    memory: "64Mi"
+                    cpu: "50m"
+                  limits:
+                    memory: "128Mi"
+                    cpu: "100m"
+                livenessProbe:
+                  httpGet:
+                    path: /nginx-health
+                    port: 80
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+                readinessProbe:
+                  httpGet:
+                    path: /nginx-health
+                    port: 80
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+                env:
+                - name: NGINX_HOST
+                  value: "localhost"
+                - name: NGINX_PORT
+                  value: "80"
+              restartPolicy: Always
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: nginx-web-console-service
+          namespace: kafka-demo
+          labels:
+            app: nginx-web-console
+        spec:
+          selector:
+            app: nginx-web-console
+          ports:
+          - name: http
+            port: 80
+            targetPort: 80
+            protocol: TCP
+          type: ClusterIP
+        ---
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+          name: nginx-web-console-ingress
+          namespace: kafka-demo
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            nginx.ingress.kubernetes.io/rewrite-target: /
+            nginx.ingress.kubernetes.io/ssl-redirect: "false"
+            nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+        spec:
+          rules:
+          - host: kafka-web.ciscloudlab.link
+            http:
+              paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: nginx-web-console-service
+                    port:
+                      number: 80
+        EOF
+        
         # Wait for deployments to be ready
         echo "⏳ Waiting for deployments to be ready..."
         kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=600s || echo "Producer deployment may still be starting..."
         kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=600s || echo "Consumer deployment may still be starting..."
+        kubectl rollout status deployment/nginx-web-console -n kafka-demo --timeout=300s || echo "Nginx deployment may still be starting..."
         
         # Show final status (only resources we actually use)
         echo "✅ Deployment completed!"
