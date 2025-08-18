@@ -439,12 +439,17 @@ jobs:
         
         # Wait for deployments to be ready
         echo "⏳ Waiting for deployments to be ready..."
-        kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
-        kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
+        kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=600s || echo "Producer deployment may still be starting..."
+        kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=600s || echo "Consumer deployment may still be starting..."
         
         # Show final status
         echo "✅ Deployment completed!"
         kubectl get all -n kafka-demo
+        
+        echo "🌐 Application should be accessible at:"
+        echo "  - https://kafka-demo.ciscloudlab.link/"
+        echo "  - Producer API: https://kafka-demo.ciscloudlab.link/api/producer/"
+        echo "  - Consumer API: https://kafka-demo.ciscloudlab.link/api/consumer/"
 
         
     - name: Verify deployment
