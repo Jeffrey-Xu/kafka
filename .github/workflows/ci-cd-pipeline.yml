@@ -484,9 +484,18 @@ jobs:
         kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=600s || echo "Producer deployment may still be starting..."
         kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=600s || echo "Consumer deployment may still be starting..."
         
-        # Show final status
+        # Show final status (only resources we actually use)
         echo "✅ Deployment completed!"
-        kubectl get all -n kafka-demo
+        echo "=== Pods ==="
+        kubectl get pods -n kafka-demo
+        echo "=== Services ==="
+        kubectl get services -n kafka-demo
+        echo "=== Deployments ==="
+        kubectl get deployments -n kafka-demo
+        echo "=== Ingress ==="
+        kubectl get ingress -n kafka-demo
+        echo "=== ReplicaSets ==="
+        kubectl get replicasets -n kafka-demo
         
         echo "🌐 Application should be accessible at:"
         echo "  - https://kafka-demo.ciscloudlab.link/"
