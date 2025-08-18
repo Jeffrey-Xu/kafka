@@ -1,0 +1,52 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kafka-demo-ingress
+  namespace: kafka-demo
+  labels:
+    app: kafka-demo
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: kafka-demo.ciscloudlab.link
+    http:
+      paths:
+      # Producer API routes
+      - path: /producer(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: spring-kafka-producer-service
+            port:
+              number: 8080
+      
+      # Consumer API routes
+      - path: /consumer(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: spring-kafka-consumer-service
+            port:
+              number: 8081
+      
+      # Health check routes (for load balancer)
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: spring-kafka-producer-service
+            port:
+              number: 8080
+  
+  # Optional: TLS configuration
+  # tls:
+  # - hosts:
+  #   - kafka-demo.ciscloudlab.link
+  #   secretName: kafka-demo-tls

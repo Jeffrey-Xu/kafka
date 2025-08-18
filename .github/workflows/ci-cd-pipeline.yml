@@ -1,0 +1,198 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_PRODUCER: spring-kafka-producer
+  ECR_REPOSITORY_CONSUMER: spring-kafka-consumer
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test Applications
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Run tests
+      run: |
+        mvn clean test -B
+        
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Maven Tests
+        path: '**/target/surefire-reports/*.xml'
+        reporter: java-junit
+        
+    - name: Code coverage
+      run: |
+        mvn jacoco:report
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./target/site/jacoco/jacoco.xml
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    name: Build and Push Docker Images
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Build applications
+      run: |
+        mvn clean package -DskipTests -B
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Build and push Producer image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -f producer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG .
+        docker build -f producer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:latest .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:latest
+        
+    - name: Build and push Consumer image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -f consumer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG .
+        docker build -f consumer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:latest .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    name: Deploy to Kubernetes
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Update Kubernetes manifests
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Update producer deployment
+        sed -i "s|IMAGE_PLACEHOLDER|$ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG|g" k8s/producer/deployment.yaml
+        
+        # Update consumer deployment
+        sed -i "s|IMAGE_PLACEHOLDER|$ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG|g" k8s/consumer/deployment.yaml
+        
+    - name: Deploy to Kubernetes
+      run: |
+        # Install kubectl
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        
+        # Configure kubectl (assuming kubeconfig is provided via secrets)
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+        
+        # Deploy applications
+        kubectl apply -f k8s/producer/
+        kubectl apply -f k8s/consumer/
+        kubectl apply -f k8s/ingress/
+        
+        # Wait for deployments to be ready
+        kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
+        kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
+        
+    - name: Verify deployment
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Check pod status
+        kubectl get pods -n kafka-demo
+        
+        # Check service endpoints
+        kubectl get services -n kafka-demo
+        
+        # Run health checks
+        kubectl exec deployment/spring-kafka-producer -n kafka-demo -- curl -f http://localhost:8080/actuator/health
+        kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://localhost:8081/actuator/health
+
+  notify:
+    needs: [test, build-and-push, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    name: Notify Results
+    
+    steps:
+    - name: Notify success
+      if: ${{ needs.test.result == 'success' && needs.build-and-push.result == 'success' && needs.deploy.result == 'success' }}
+      run: |
+        echo "✅ Pipeline completed successfully!"
+        echo "🚀 Applications deployed to Kubernetes"
+        
+    - name: Notify failure
+      if: ${{ needs.test.result == 'failure' || needs.build-and-push.result == 'failure' || needs.deploy.result == 'failure' }}
+      run: |
+        echo "❌ Pipeline failed!"
+        echo "🔍 Check the logs for details"

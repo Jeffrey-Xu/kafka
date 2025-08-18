@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: kafka-consumer-test
+  
+  # Test database configuration (H2 in-memory)
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # JPA configuration for tests
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+  
+  # H2 Console (for debugging tests if needed)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # Kafka configuration for tests (embedded or disabled)
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.jeffreyxu.kafka.common.model"
+        spring.json.type.mapping: >
+          userEvent:com.jeffreyxu.kafka.common.model.UserEvent,
+          businessEvent:com.jeffreyxu.kafka.common.model.BusinessEvent,
+          systemEvent:com.jeffreyxu.kafka.common.model.SystemEvent
+      enable-auto-commit: false
+    listener:
+      ack-mode: manual_immediate
+
+# Logging configuration for tests
+logging:
+  level:
+    com.jeffreyxu.kafka: DEBUG
+    org.springframework.kafka: WARN
+    org.hibernate: WARN
+    org.springframework.web: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints for testing
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Server configuration for tests
+server:
+  port: 0  # Random available port for tests
