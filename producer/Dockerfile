@@ -1,51 +1,36 @@
-# Multi-stage build for Spring Boot Kafka Producer
-FROM maven:3.9-openjdk-17-slim AS build
+# Simplified Dockerfile for Spring Boot Kafka Producer
+# Uses pre-built JAR from CI/CD pipeline
 
-# Set working directory
-WORKDIR /app
-
-# Copy parent POM and common module first (for better caching)
-COPY pom.xml .
-COPY common/pom.xml common/
-COPY producer/pom.xml producer/
-
-# Download dependencies (this layer will be cached if POMs don't change)
-RUN mvn dependency:go-offline -B
-
-# Copy source code
-COPY common/src common/src
-COPY producer/src producer/src
-
-# Build the application
-RUN mvn clean package -DskipTests -B
-
-# Runtime stage
 FROM openjdk:17-jdk-slim
 
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
-RUN addgroup --system spring && adduser --system spring --ingroup spring
+RUN groupadd -r kafka && useradd -r -g kafka kafka
 
 # Set working directory
 WORKDIR /app
 
-# Copy the built JAR from build stage
-COPY --from=build /app/producer/target/spring-kafka-producer-*.jar app.jar
+# Copy the pre-built JAR file from CI/CD build
+COPY producer/target/spring-kafka-producer-*.jar app.jar
 
-# Change ownership to spring user
-RUN chown spring:spring app.jar
+# Change ownership to non-root user
+RUN chown -R kafka:kafka /app
 
 # Switch to non-root user
-USER spring:spring
+USER kafka
 
 # Expose port
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
-
-# JVM optimization for containers
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
 
 # Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# JVM options for containerized environment
+ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
