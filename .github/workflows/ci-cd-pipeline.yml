@@ -260,7 +260,7 @@ jobs:
         # Verify connection
         echo "Testing Kubernetes connection..."
         kubectl version --client
-        kubectl get nodes
+        kubectl get pods -n kafka-demo
         
     - name: Deploy to Kubernetes
       run: |
