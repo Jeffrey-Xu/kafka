@@ -266,9 +266,6 @@ jobs:
       run: |
         echo "🚀 Deploying applications to Kubernetes cluster..."
         
-        # Ensure namespace exists
-        kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
-        
         # Deploy Producer
         kubectl apply -f - <<EOF
         apiVersion: apps/v1
