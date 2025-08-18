@@ -35,6 +35,15 @@ spring:
         order_inserts: true
         order_updates: true
   
+  # Static resource configuration for web interface
+  web:
+    resources:
+      static-locations: classpath:/static/
+      cache:
+        period: 0
+  mvc:
+    static-path-pattern: /**
+
   # Kafka configuration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
