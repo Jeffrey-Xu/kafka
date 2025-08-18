@@ -229,7 +229,29 @@ jobs:
       run: |
         echo "Setting up Kubernetes access..."
         mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+        
+        # Create kubeconfig directly to avoid certificate conflicts
+        cat > ~/.kube/config <<EOF
+        apiVersion: v1
+        kind: Config
+        clusters:
+        - cluster:
+            server: https://master01.ciscloudlab.link:6443
+            insecure-skip-tls-verify: true
+          name: kubernetes
+        contexts:
+        - context:
+            cluster: kubernetes
+            namespace: kafka-demo
+            user: github-actions-deployer
+          name: github-actions-deployer@kubernetes
+        current-context: github-actions-deployer@kubernetes
+        users:
+        - name: github-actions-deployer
+          user:
+            token: ${{ secrets.K8S_TOKEN }}
+        EOF
+        
         chmod 600 ~/.kube/config
         
         # Verify connection
