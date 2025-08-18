@@ -22,7 +22,7 @@ spec:
       serviceAccountName: kafka-demo-sa
       containers:
       - name: consumer
-        image: IMAGE_PLACEHOLDER  # Will be replaced by CI/CD pipeline
+        image: IMAGE_PLACEHOLDER  # Will be replaced by CI/CD pipeline with jeffreyxu2025/kafka:consumer-{sha}
         imagePullPolicy: Always
         ports:
         - containerPort: 8081

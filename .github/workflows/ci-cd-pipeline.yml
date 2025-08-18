@@ -7,9 +7,9 @@ on:
     branches: [ main ]
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY_PRODUCER: spring-kafka-producer
-  ECR_REPOSITORY_CONSUMER: spring-kafka-consumer
+  DOCKER_HUB_USERNAME: jeffreyxu2025
+  PRODUCER_IMAGE: jeffreyxu2025/kafka:producer
+  CONSUMER_IMAGE: jeffreyxu2025/kafka:consumer
 
 jobs:
   test:
@@ -81,36 +81,38 @@ jobs:
       run: |
         mvn clean package -DskipTests -B
         
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
       
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        
     - name: Build and push Producer image
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -f producer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG .
-        docker build -f producer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:latest
+        docker buildx build \
+          --platform linux/amd64 \
+          -f producer/Dockerfile \
+          -t ${{ env.PRODUCER_IMAGE }}:$IMAGE_TAG \
+          -t ${{ env.PRODUCER_IMAGE }}:latest \
+          --push \
+          .
         
     - name: Build and push Consumer image
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -f consumer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG .
-        docker build -f consumer/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:latest
+        docker buildx build \
+          --platform linux/amd64 \
+          -f consumer/Dockerfile \
+          -t ${{ env.CONSUMER_IMAGE }}:$IMAGE_TAG \
+          -t ${{ env.CONSUMER_IMAGE }}:latest \
+          --push \
+          .
 
   deploy:
     needs: build-and-push
@@ -122,61 +124,82 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-      
     - name: Update Kubernetes manifests
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Update producer deployment
-        sed -i "s|IMAGE_PLACEHOLDER|$ECR_REGISTRY/$ECR_REPOSITORY_PRODUCER:$IMAGE_TAG|g" k8s/producer/deployment.yaml
+        sed -i "s|IMAGE_PLACEHOLDER|${{ env.PRODUCER_IMAGE }}:$IMAGE_TAG|g" k8s/producer/deployment.yaml
         
         # Update consumer deployment
-        sed -i "s|IMAGE_PLACEHOLDER|$ECR_REGISTRY/$ECR_REPOSITORY_CONSUMER:$IMAGE_TAG|g" k8s/consumer/deployment.yaml
+        sed -i "s|IMAGE_PLACEHOLDER|${{ env.CONSUMER_IMAGE }}:$IMAGE_TAG|g" k8s/consumer/deployment.yaml
+        
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.K8S_HOST }} >> ~/.ssh/known_hosts
         
     - name: Deploy to Kubernetes
+      env:
+        K8S_HOST: ${{ secrets.K8S_HOST }}
+        K8S_USER: ${{ secrets.K8S_USER }}
       run: |
-        # Install kubectl
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-        
-        # Configure kubectl (assuming kubeconfig is provided via secrets)
-        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-        export KUBECONFIG=kubeconfig
+        # Copy manifests to Kubernetes master
+        scp -r k8s/ $K8S_USER@$K8S_HOST:/tmp/kafka-deployment/
         
         # Deploy applications
-        kubectl apply -f k8s/producer/
-        kubectl apply -f k8s/consumer/
-        kubectl apply -f k8s/ingress/
-        
-        # Wait for deployments to be ready
-        kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
-        kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
+        ssh $K8S_USER@$K8S_HOST "
+          # Ensure namespace exists
+          kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create required resources if they don't exist
+          kubectl get serviceaccount kafka-demo-sa -n kafka-demo 2>/dev/null || \
+          kubectl create serviceaccount kafka-demo-sa -n kafka-demo
+          
+          kubectl get secret db-secret -n kafka-demo 2>/dev/null || \
+          kubectl create secret generic db-secret -n kafka-demo \
+            --from-literal=username=kafka_user \
+            --from-literal=password=kafka_password
+          
+          kubectl get configmap app-config -n kafka-demo 2>/dev/null || \
+          kubectl create configmap app-config -n kafka-demo \
+            --from-literal=spring.kafka.bootstrap-servers=localhost:9092 \
+            --from-literal=spring.datasource.url=jdbc:mysql://mysql-service:3306/kafka_demo
+          
+          # Apply deployments
+          kubectl apply -f /tmp/kafka-deployment/producer/
+          kubectl apply -f /tmp/kafka-deployment/consumer/
+          kubectl apply -f /tmp/kafka-deployment/ingress/
+          
+          # Wait for deployments to be ready
+          kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
+          kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
+          
+          # Cleanup
+          rm -rf /tmp/kafka-deployment/
+        "
         
     - name: Verify deployment
+      env:
+        K8S_HOST: ${{ secrets.K8S_HOST }}
+        K8S_USER: ${{ secrets.K8S_USER }}
       run: |
-        export KUBECONFIG=kubeconfig
-        
-        # Check pod status
-        kubectl get pods -n kafka-demo
-        
-        # Check service endpoints
-        kubectl get services -n kafka-demo
-        
-        # Run health checks
-        kubectl exec deployment/spring-kafka-producer -n kafka-demo -- curl -f http://localhost:8080/actuator/health
-        kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://localhost:8081/actuator/health
+        ssh $K8S_USER@$K8S_HOST "
+          echo '=== Pod Status ==='
+          kubectl get pods -n kafka-demo
+          
+          echo '=== Service Status ==='
+          kubectl get services -n kafka-demo
+          
+          echo '=== Ingress Status ==='
+          kubectl get ingress -n kafka-demo
+          
+          echo '=== Health Checks ==='
+          kubectl exec deployment/spring-kafka-producer -n kafka-demo -- curl -f http://localhost:8080/actuator/health || echo 'Producer health check failed'
+          kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://localhost:8081/api/consumer/health || echo 'Consumer health check failed'
+        "
 
   notify:
     needs: [test, build-and-push, deploy]
@@ -190,9 +213,18 @@ jobs:
       run: |
         echo "✅ Pipeline completed successfully!"
         echo "🚀 Applications deployed to Kubernetes"
+        echo "🐳 Images pushed to Docker Hub:"
+        echo "   - ${{ env.PRODUCER_IMAGE }}:${{ github.sha }}"
+        echo "   - ${{ env.CONSUMER_IMAGE }}:${{ github.sha }}"
+        echo "🌐 Access URLs:"
+        echo "   - Producer: http://kafka-demo.ciscloudlab.link/producer"
+        echo "   - Consumer: http://kafka-demo.ciscloudlab.link/consumer"
         
     - name: Notify failure
       if: ${{ needs.test.result == 'failure' || needs.build-and-push.result == 'failure' || needs.deploy.result == 'failure' }}
       run: |
         echo "❌ Pipeline failed!"
         echo "🔍 Check the logs for details"
+        echo "📊 Test result: ${{ needs.test.result }}"
+        echo "🐳 Build result: ${{ needs.build-and-push.result }}"
+        echo "🚀 Deploy result: ${{ needs.deploy.result }}"
