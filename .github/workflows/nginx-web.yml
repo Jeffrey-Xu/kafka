@@ -216,31 +216,6 @@ jobs:
             targetPort: 8080
             protocol: TCP
           type: ClusterIP
-        ---
-        apiVersion: networking.k8s.io/v1
-        kind: Ingress
-        metadata:
-          name: nginx-web-console-ingress
-          namespace: kafka-demo
-          annotations:
-            kubernetes.io/ingress.class: nginx
-            nginx.ingress.kubernetes.io/rewrite-target: /
-            nginx.ingress.kubernetes.io/ssl-redirect: "false"
-            nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-        spec:
-          rules:
-          - host: kafka-web.ciscloudlab.link
-            http:
-              paths:
-              - path: /
-                pathType: Prefix
-                backend:
-                  service:
-                    name: nginx-web-console-service
-                    port:
-                      number: 80
-        EOF
-        
         # Wait for deployment
         echo "⏳ Waiting for nginx deployment to be ready..."
         kubectl rollout status deployment/nginx-web-console -n kafka-demo --timeout=300s
@@ -251,7 +226,9 @@ jobs:
         kubectl get pods -n kafka-demo -l app=nginx-web-console
         echo "=== Nginx Service ==="
         kubectl get service nginx-web-console-service -n kafka-demo
-        echo "=== Nginx Ingress ==="
-        kubectl get ingress nginx-web-console-ingress -n kafka-demo
+        echo "=== Main Ingress (includes /web/ paths) ==="
+        kubectl get ingress kafka-demo-ingress -n kafka-demo
         
-        echo "🌐 Nginx Web Console accessible at: http://kafka-web.ciscloudlab.link/"
+        echo "🌐 Nginx Web Console accessible at:"
+        echo "   - Web Console: http://kafka-demo.ciscloudlab.link/web/"
+        echo "   - Dashboard: http://kafka-demo.ciscloudlab.link/web/dashboard.html"
