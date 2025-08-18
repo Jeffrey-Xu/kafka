@@ -36,6 +36,11 @@ public interface ProcessedMessageRepository extends JpaRepository<ProcessedMessa
      * Find processed messages by status
      */
     List<ProcessedMessage> findByStatusOrderByProcessedAtDesc(String status);
+    
+    /**
+     * Find processed messages by status with pagination
+     */
+    List<ProcessedMessage> findByStatusOrderByProcessedAtDesc(String status, org.springframework.data.domain.Pageable pageable);
 
     /**
      * Count total processed messages
