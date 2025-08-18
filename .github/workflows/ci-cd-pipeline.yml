@@ -155,8 +155,9 @@ jobs:
         echo "✅ Producer JAR file found"
         ls -la producer/target/spring-kafka-producer-*.jar
         
-        # Build and push image
+        # Build and push image (force rebuild without cache)
         docker buildx build \
+          --no-cache \
           --platform linux/amd64 \
           -f producer/Dockerfile \
           -t jeffreyxu2025/kafka:producer-$IMAGE_TAG \
@@ -184,8 +185,9 @@ jobs:
         echo "✅ Consumer JAR file found"
         ls -la consumer/target/spring-kafka-consumer-*.jar
         
-        # Build and push image
+        # Build and push image (force rebuild without cache)
         docker buildx build \
+          --no-cache \
           --platform linux/amd64 \
           -f consumer/Dockerfile \
           -t jeffreyxu2025/kafka:consumer-$IMAGE_TAG \
