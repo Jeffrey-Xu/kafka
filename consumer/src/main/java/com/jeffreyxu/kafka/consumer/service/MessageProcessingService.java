@@ -222,10 +222,28 @@ public class MessageProcessingService {
             processedMessage.setPayload(objectMapper.writeValueAsString(event));
             processedMessage.setProcessedAt(LocalDateTime.now());
             processedMessage.setStatus("SUCCESS");
+            // Set consumer group based on topic
+            processedMessage.setConsumerGroup(getConsumerGroupForTopic(topic));
             
             return processedMessage;
         } catch (Exception e) {
             throw new RuntimeException("Failed to create processed message record", e);
+        }
+    }
+    
+    /**
+     * Get consumer group name based on topic
+     */
+    private String getConsumerGroupForTopic(String topic) {
+        switch (topic) {
+            case "user-events":
+                return "user-events-consumer-group";
+            case "business-events":
+                return "business-events-consumer-group";
+            case "system-events":
+                return "system-events-consumer-group";
+            default:
+                return "kafka-demo-consumer-group";
         }
     }
 
@@ -238,6 +256,28 @@ public class MessageProcessingService {
         try {
             ProcessedMessage processedMessage = new ProcessedMessage();
             processedMessage.setMessageId(messageId);
+            processedMessage.setTopic(topic);
+            processedMessage.setPartitionId(partition);
+            processedMessage.setOffsetValue(offset);
+            processedMessage.setMessageKey(key);
+            processedMessage.setEventType(eventType);
+            processedMessage.setConsumerGroup(getConsumerGroupForTopic(topic));
+            
+            if (event != null) {
+                processedMessage.setPayload(objectMapper.writeValueAsString(event));
+            }
+            
+            processedMessage.setProcessedAt(LocalDateTime.now());
+            processedMessage.setStatus("FAILED");
+            processedMessage.setErrorMessage(errorMessage);
+            processedMessage.setRetryCount(1);
+            
+            processedMessageRepository.save(processedMessage);
+            
+        } catch (Exception e) {
+            log.error("Failed to create failed processing record for message: {}", messageId, e);
+        }
+    }
             processedMessage.setTopic(topic);
             processedMessage.setPartitionId(partition);
             processedMessage.setOffsetValue(offset);
