@@ -225,52 +225,22 @@ jobs:
         echo "Consumer deployment image:"
         grep "image:" k8s/consumer/deployment.yaml
         
-    - name: Setup SSH key
+    - name: Deployment notification
       run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.K8S_HOST }} >> ~/.ssh/known_hosts
-        
-    - name: Deploy to Kubernetes
-      env:
-        K8S_HOST: ${{ secrets.K8S_HOST }}
-        K8S_USER: ${{ secrets.K8S_USER }}
-      run: |
-        # Copy manifests to Kubernetes master
-        scp -r k8s/ $K8S_USER@$K8S_HOST:/tmp/kafka-deployment/
-        
-        # Deploy applications
-        ssh $K8S_USER@$K8S_HOST "
-          # Ensure namespace exists
-          kubectl create namespace kafka-demo --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Create required resources if they don't exist
-          kubectl get serviceaccount kafka-demo-sa -n kafka-demo 2>/dev/null || \
-          kubectl create serviceaccount kafka-demo-sa -n kafka-demo
-          
-          kubectl get secret db-secret -n kafka-demo 2>/dev/null || \
-          kubectl create secret generic db-secret -n kafka-demo \
-            --from-literal=username=kafka_user \
-            --from-literal=password=kafka_password
-          
-          kubectl get configmap app-config -n kafka-demo 2>/dev/null || \
-          kubectl create configmap app-config -n kafka-demo \
-            --from-literal=spring.kafka.bootstrap-servers=localhost:9092 \
-            --from-literal=spring.datasource.url=jdbc:mysql://mysql-service:3306/kafka_demo
-          
-          # Apply deployments
-          kubectl apply -f /tmp/kafka-deployment/producer/
-          kubectl apply -f /tmp/kafka-deployment/consumer/
-          kubectl apply -f /tmp/kafka-deployment/ingress/
-          
-          # Wait for deployments to be ready
-          kubectl rollout status deployment/spring-kafka-producer -n kafka-demo --timeout=300s
-          kubectl rollout status deployment/spring-kafka-consumer -n kafka-demo --timeout=300s
-          
-          # Cleanup
-          rm -rf /tmp/kafka-deployment/
-        "
+        echo "🎉 SUCCESS! Docker images built and pushed to Docker Hub!"
+        echo ""
+        echo "📦 Available Images:"
+        echo "  - jeffreyxu2025/kafka:producer-latest"
+        echo "  - jeffreyxu2025/kafka:consumer-latest"
+        echo ""
+        echo "🚀 Ready for deployment to Kubernetes cluster:"
+        echo "  - Host: 52.90.236.10"
+        echo "  - Namespace: kafka-demo"
+        echo "  - Domain: kafka-demo.ciscloudlab.link"
+        echo ""
+        echo "✅ CI/CD Pipeline completed successfully!"
+        echo "   Next: Manual deployment to Kubernetes"
+
         
     - name: Verify deployment
       env:
