@@ -216,6 +216,8 @@ jobs:
             targetPort: 8080
             protocol: TCP
           type: ClusterIP
+        EOF
+        
         # Wait for deployment
         echo "⏳ Waiting for nginx deployment to be ready..."
         kubectl rollout status deployment/nginx-web-console -n kafka-demo --timeout=300s
