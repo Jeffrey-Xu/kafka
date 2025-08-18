@@ -87,17 +87,14 @@ jobs:
         echo "Step 1: Clean all modules"
         mvn clean -B
         
-        echo "Step 2: Compile and install common module first (skip tests)"
-        mvn compile install -pl common -DskipTests -B
+        echo "Step 2: Install parent POM to local repository"
+        mvn install -N -DskipTests -B
         
-        echo "Step 3: Compile producer module (skip tests)"
-        mvn compile -pl producer -DskipTests -B
+        echo "Step 3: Install common module"
+        mvn install -pl common -DskipTests -B
         
-        echo "Step 4: Compile consumer module (skip tests)"  
-        mvn compile -pl consumer -DskipTests -B
-        
-        echo "Step 5: Package all modules (skip tests)"
-        mvn package -DskipTests -B
+        echo "Step 4: Compile and package all modules"
+        mvn compile package -DskipTests -B
         
         echo "=== Build Artifacts ==="
         find . -name "*.jar" -type f -exec ls -la {} \;
