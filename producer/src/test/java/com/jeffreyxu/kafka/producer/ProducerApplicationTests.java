@@ -1,16 +1,16 @@
-package com.jeffreyxu.kafka.consumer;
+package com.jeffreyxu.kafka.producer;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Basic integration test for the Consumer application.
+ * Basic integration test for the Producer application.
  * Verifies that the application context loads successfully.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
-class ConsumerApplicationTests {
+class ProducerApplicationTests {
 
     /**
      * Test that the application context loads successfully
