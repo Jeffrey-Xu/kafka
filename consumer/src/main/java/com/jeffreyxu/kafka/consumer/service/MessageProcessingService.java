@@ -278,19 +278,4 @@ public class MessageProcessingService {
             log.error("Failed to create failed processing record for message: {}", messageId, e);
         }
     }
-            processedMessage.setTopic(topic);
-            processedMessage.setPartitionId(partition);
-            processedMessage.setOffsetValue(offset);
-            processedMessage.setMessageKey(key);
-            processedMessage.setEventType(eventType);
-            processedMessage.setPayload(objectMapper.writeValueAsString(event));
-            processedMessage.setProcessedAt(LocalDateTime.now());
-            processedMessage.setStatus("FAILED");
-            processedMessage.setErrorMessage(errorMessage);
-            
-            processedMessageRepository.save(processedMessage);
-        } catch (Exception e) {
-            log.error("Failed to create failed processing record", e);
-        }
-    }
 }
