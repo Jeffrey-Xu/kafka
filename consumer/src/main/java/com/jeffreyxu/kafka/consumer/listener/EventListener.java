@@ -37,9 +37,9 @@ public class EventListener {
     public void handleUserEvent(
             @Payload UserEvent event,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
-            @Header(value = KafkaHeaders.RECEIVED_MESSAGE_KEY, required = false) String key,
+            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
             Acknowledgment acknowledgment) {
         
         long startTime = System.currentTimeMillis();
@@ -82,9 +82,9 @@ public class EventListener {
     public void handleBusinessEvent(
             @Payload BusinessEvent event,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
-            @Header(value = KafkaHeaders.RECEIVED_MESSAGE_KEY, required = false) String key,
+            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
             Acknowledgment acknowledgment) {
         
         long startTime = System.currentTimeMillis();
@@ -122,9 +122,9 @@ public class EventListener {
     public void handleSystemEvent(
             @Payload SystemEvent event,
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition,
+            @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
             @Header(KafkaHeaders.OFFSET) long offset,
-            @Header(value = KafkaHeaders.RECEIVED_MESSAGE_KEY, required = false) String key,
+            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
             Acknowledgment acknowledgment) {
         
         long startTime = System.currentTimeMillis();
