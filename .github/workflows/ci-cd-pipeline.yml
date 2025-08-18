@@ -230,8 +230,8 @@ jobs:
         echo "Setting up Kubernetes access..."
         mkdir -p ~/.kube
         
-        # Create kubeconfig directly to avoid certificate conflicts
-        cat > ~/.kube/config <<EOF
+        # Create kubeconfig with proper YAML formatting
+        cat > ~/.kube/config << 'EOF'
         apiVersion: v1
         kind: Config
         clusters:
@@ -249,12 +249,16 @@ jobs:
         users:
         - name: github-actions-deployer
           user:
-            token: ${{ secrets.K8S_TOKEN }}
+            token: TOKEN_PLACEHOLDER
         EOF
+        
+        # Replace token placeholder with actual token
+        sed -i "s/TOKEN_PLACEHOLDER/${{ secrets.K8S_TOKEN }}/g" ~/.kube/config
         
         chmod 600 ~/.kube/config
         
         # Verify connection
+        echo "Testing Kubernetes connection..."
         kubectl version --client
         kubectl get nodes
         
