@@ -13,7 +13,7 @@ RUN groupadd -r kafka && useradd -r -g kafka kafka
 WORKDIR /app
 
 # Copy the pre-built JAR file from CI/CD build
-COPY producer/target/spring-kafka-producer-*.jar app.jar
+COPY target/spring-kafka-producer-*.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R kafka:kafka /app
@@ -28,9 +28,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
-
 # JVM options for containerized environment
 ENV JAVA_OPTS="-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+
+# Run the application
 CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
