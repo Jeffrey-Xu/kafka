@@ -357,14 +357,14 @@ jobs:
         echo "🗄️ Ensuring database schema is correct..."
         
         # Add missing consumer_group column if it doesn't exist
-        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_password kafka_demo -e "
+        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_pass kafka_demo -e "
           ALTER TABLE processed_messages 
           ADD COLUMN IF NOT EXISTS consumer_group VARCHAR(255) AFTER message_id;
         " || echo "Schema update completed or column already exists"
         
         # Verify schema
         echo "✅ Verifying database schema..."
-        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_password kafka_demo -e "DESCRIBE processed_messages;" || echo "Schema verification failed"
+        kubectl exec deployment/mysql -n kafka-demo -- mysql -u kafka_user -pkafka_pass kafka_demo -e "DESCRIBE processed_messages;" || echo "Schema verification failed"
         
     - name: Deploy to Kubernetes
       run: |
@@ -400,7 +400,7 @@ jobs:
                 - name: SPRING_DATASOURCE_USERNAME
                   value: kafka_user
                 - name: SPRING_DATASOURCE_PASSWORD
-                  value: kafka_password
+                  value: kafka_pass
                 - name: KAFKA_BOOTSTRAP_SERVERS
                   value: "kafka-service.kafka-system.svc.cluster.local:9092"
                 resources:
@@ -467,7 +467,7 @@ jobs:
                 - name: SPRING_DATASOURCE_USERNAME
                   value: kafka_user
                 - name: SPRING_DATASOURCE_PASSWORD
-                  value: kafka_password
+                  value: kafka_pass
                 - name: KAFKA_BOOTSTRAP_SERVERS
                   value: "kafka-service.kafka-system.svc.cluster.local:9092"
                 - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
@@ -534,7 +534,7 @@ jobs:
         spec:
           ingressClassName: nginx
           rules:
-          - host: kafka-demo.ciscloudlab.link
+          - host: kafka.ciscloudlab.link
             http:
               paths:
               - path: /api/v1/messages
@@ -618,7 +618,7 @@ jobs:
         
         echo "=== External API Test ==="
         # Test external access
-        curl -f -H 'Host: kafka-demo.ciscloudlab.link' http://52.205.140.81:32594/actuator/health || echo "External API access failed"
+        curl -f https://kafka.ciscloudlab.link/actuator/health || echo "External API access failed"
         
         echo "✅ Deployment verification completed"
 
