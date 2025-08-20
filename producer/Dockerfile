@@ -13,7 +13,7 @@ RUN groupadd -r kafka && useradd -r -g kafka kafka
 WORKDIR /app
 
 # Copy the pre-built JAR file from CI/CD build
-COPY target/spring-kafka-producer-*.jar app.jar
+COPY producer/target/spring-kafka-producer-*.jar app.jar
 
 # Change ownership to non-root user
 RUN chown -R kafka:kafka /app
