@@ -370,15 +370,13 @@ jobs:
       run: |
         echo "🚀 Deploying applications to Kubernetes cluster..."
         
-        # Clean up existing deployments and services
-        echo "🧹 Cleaning up existing Kafka deployments..."
+        # Only delete deployments (pods) - keep services and ingress
+        echo "🧹 Cleaning up existing Kafka deployments (keeping services/ingress)..."
         kubectl delete deployment spring-kafka-producer -n kafka-demo --ignore-not-found=true
         kubectl delete deployment spring-kafka-consumer -n kafka-demo --ignore-not-found=true
-        kubectl delete service producer-service -n kafka-demo --ignore-not-found=true
-        kubectl delete service consumer-service -n kafka-demo --ignore-not-found=true
         
-        # Wait for cleanup to complete
-        echo "⏳ Waiting for cleanup to complete..."
+        # Wait for deployment cleanup to complete
+        echo "⏳ Waiting for deployment cleanup to complete..."
         sleep 10
         
         # Deploy Producer
@@ -535,10 +533,8 @@ jobs:
           type: ClusterIP
         EOF
         
-        # Clean up and deploy Ingress with FIXED CONFIGURATION
-        echo "🌐 Updating Ingress configuration..."
-        kubectl delete ingress kafka-demo-ingress -n kafka-demo --ignore-not-found=true
-        sleep 5
+        # Deploy/Update Ingress (will update existing or create new)
+        echo "🌐 Ensuring Ingress configuration is up to date..."
         kubectl apply -f - <<EOF
         apiVersion: networking.k8s.io/v1
         kind: Ingress
