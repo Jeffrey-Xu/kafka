@@ -2,7 +2,7 @@
 
 echo "🚀 KAFKA DEMO TESTING SCRIPT"
 echo "============================"
-echo "Demo URL: http://kafka-demo.ciscloudlab.link"
+echo "Demo URL: http://kafka.ciscloudlab.link"
 echo ""
 
 # Generate unique timestamp for message IDs
@@ -11,19 +11,19 @@ RANDOM_ID=$(shuf -i 1000-9999 -n 1)
 
 echo "1. 📊 System Health Check"
 echo "-------------------------"
-curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+curl -s -H 'Host: kafka.ciscloudlab.link' \
      http://52.205.140.81:32594/actuator/health | jq '.status' 2>/dev/null || echo "System is UP"
 
 echo ""
 echo "2. 📈 Consumer Statistics"
 echo "------------------------"
-curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+curl -s -H 'Host: kafka.ciscloudlab.link' \
      http://52.205.140.81:32594/api/consumer/health | jq '.status' 2>/dev/null || echo "Consumer is UP"
 
 echo ""
 echo "3. 📨 Send User Event (LOGIN)"
 echo "----------------------------"
-USER_RESPONSE=$(curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+USER_RESPONSE=$(curl -s -H 'Host: kafka.ciscloudlab.link' \
      -H 'Content-Type: application/json' \
      -X POST http://52.205.140.81:32594/api/v1/messages/user \
      -d '{
@@ -39,7 +39,7 @@ echo "$USER_RESPONSE" | jq '.' 2>/dev/null || echo "$USER_RESPONSE"
 echo ""
 echo "4. 🛒 Send User Event (PURCHASE)"
 echo "-------------------------------"
-PURCHASE_RESPONSE=$(curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+PURCHASE_RESPONSE=$(curl -s -H 'Host: kafka.ciscloudlab.link' \
      -H 'Content-Type: application/json' \
      -X POST http://52.205.140.81:32594/api/v1/messages/user \
      -d '{
@@ -55,7 +55,7 @@ echo "$PURCHASE_RESPONSE" | jq '.' 2>/dev/null || echo "$PURCHASE_RESPONSE"
 echo ""
 echo "5. 🔍 Send User Event (SEARCH)"
 echo "-----------------------------"
-SEARCH_RESPONSE=$(curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+SEARCH_RESPONSE=$(curl -s -H 'Host: kafka.ciscloudlab.link' \
      -H 'Content-Type: application/json' \
      -X POST http://52.205.140.81:32594/api/v1/messages/user \
      -d '{
@@ -75,9 +75,9 @@ sleep 10
 echo ""
 echo "7. 📊 Check Updated Consumer Statistics"
 echo "-------------------------------------"
-curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+curl -s -H 'Host: kafka.ciscloudlab.link' \
      http://52.205.140.81:32594/api/consumer/health | jq '.' 2>/dev/null || \
-curl -s -H 'Host: kafka-demo.ciscloudlab.link' \
+curl -s -H 'Host: kafka.ciscloudlab.link' \
      http://52.205.140.81:32594/api/consumer/health
 
 echo ""
@@ -89,4 +89,4 @@ echo "- Messages sent successfully with unique IDs"
 echo "- Consumer processing the events"
 echo "- Updated statistics showing processed messages"
 echo ""
-echo "🌐 Access the demo at: http://kafka-demo.ciscloudlab.link"
+echo "🌐 Access the demo at: http://kafka.ciscloudlab.link"

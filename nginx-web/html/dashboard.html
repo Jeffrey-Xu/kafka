@@ -276,13 +276,13 @@
         
         <div class="footer">
             <p>🎯 Kafka Event-Driven Architecture Demo | Nginx Web Console</p>
-            <p>Consumer API: <code>http://kafka-demo.ciscloudlab.link/api/consumer/health</code></p>
+            <p>Consumer API: <code>http://kafka.ciscloudlab.link/api/consumer/health</code></p>
         </div>
     </div>
 
     <script>
         // Configuration
-        const API_BASE_URL = 'http://kafka-demo.ciscloudlab.link';
+        const API_BASE_URL = 'http://kafka.ciscloudlab.link';
         
         let autoRefreshInterval;
         
@@ -315,7 +315,7 @@
         async function loadConsumerStats() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/consumer/health`, {
-                    headers: { 'Host': 'kafka-demo.ciscloudlab.link' }
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
                 });
                 const data = await response.json();
                 
@@ -340,7 +340,7 @@
             try {
                 // Try to get actual order data first
                 const response = await fetch(`${API_BASE_URL}/api/orders/recent?limit=10`, {
-                    headers: { 'Host': 'kafka-demo.ciscloudlab.link' }
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
                 });
                 
                 if (response.ok) {
@@ -354,7 +354,7 @@
                 
                 // Fallback: Generate sample data based on stats
                 const statsResponse = await fetch(`${API_BASE_URL}/api/consumer/health`, {
-                    headers: { 'Host': 'kafka-demo.ciscloudlab.link' }
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
                 });
                 const statsData = await statsResponse.json();
                 

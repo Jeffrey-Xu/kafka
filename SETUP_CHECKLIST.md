@@ -72,11 +72,11 @@ git push origin main
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| **Producer API** | http://kafka-demo.ciscloudlab.link/producer | Send events, view stats |
-| **Consumer API** | http://kafka-demo.ciscloudlab.link/consumer | Monitor processing, analytics |
-| **Producer Health** | http://kafka-demo.ciscloudlab.link/producer/actuator/health | Health status |
-| **Consumer Health** | http://kafka-demo.ciscloudlab.link/consumer/api/consumer/health | Health status |
-| **Consumer Stats** | http://kafka-demo.ciscloudlab.link/consumer/api/consumer/stats | Real-time statistics |
+| **Producer API** | http://kafka.ciscloudlab.link/producer | Send events, view stats |
+| **Consumer API** | http://kafka.ciscloudlab.link/consumer | Monitor processing, analytics |
+| **Producer Health** | http://kafka.ciscloudlab.link/producer/actuator/health | Health status |
+| **Consumer Health** | http://kafka.ciscloudlab.link/consumer/api/consumer/health | Health status |
+| **Consumer Stats** | http://kafka.ciscloudlab.link/consumer/api/consumer/stats | Real-time statistics |
 
 ## 🔍 **Monitoring & Verification**
 
@@ -109,7 +109,7 @@ kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://lo
 ### 1. Send Test Events via Producer API:
 ```bash
 # User Event
-curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/user \
+curl -X POST http://kafka.ciscloudlab.link/producer/api/events/user \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user123",
@@ -122,7 +122,7 @@ curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/user \
   }'
 
 # Business Event  
-curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/business \
+curl -X POST http://kafka.ciscloudlab.link/producer/api/events/business \
   -H "Content-Type: application/json" \
   -d '{
     "orderId": "order789",
@@ -134,7 +134,7 @@ curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/business \
   }'
 
 # System Event
-curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/system \
+curl -X POST http://kafka.ciscloudlab.link/producer/api/events/system \
   -H "Content-Type: application/json" \
   -d '{
     "serviceId": "payment-service",
@@ -148,7 +148,7 @@ curl -X POST http://kafka-demo.ciscloudlab.link/producer/api/events/system \
 ### 2. Monitor Consumer Processing:
 ```bash
 # Check processing statistics
-curl http://kafka-demo.ciscloudlab.link/consumer/api/consumer/stats
+curl http://kafka.ciscloudlab.link/consumer/api/consumer/stats
 
 # Check database records
 ssh -i ~/.ssh/my-ec2-key.pem ubuntu@52.90.236.10

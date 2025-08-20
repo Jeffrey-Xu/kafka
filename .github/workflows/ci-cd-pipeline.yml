@@ -596,9 +596,9 @@ jobs:
         kubectl get replicasets -n kafka-demo
         
         echo "🌐 Application should be accessible at:"
-        echo "  - https://kafka-demo.ciscloudlab.link/"
-        echo "  - Producer API: https://kafka-demo.ciscloudlab.link/api/producer/"
-        echo "  - Consumer API: https://kafka-demo.ciscloudlab.link/api/consumer/"
+        echo "  - http://kafka.ciscloudlab.link/"
+        echo "  - Producer API: http://kafka.ciscloudlab.link/api/v1/messages/"
+        echo "  - Consumer API: http://kafka.ciscloudlab.link/api/consumer/"
 
         
     - name: Verify deployment
@@ -648,8 +648,8 @@ jobs:
         echo "   - ${{ env.PRODUCER_IMAGE }}:${{ github.sha }}"
         echo "   - ${{ env.CONSUMER_IMAGE }}:${{ github.sha }}"
         echo "🌐 Access URLs:"
-        echo "   - Producer: http://kafka-demo.ciscloudlab.link/producer"
-        echo "   - Consumer: http://kafka-demo.ciscloudlab.link/consumer"
+        echo "   - Producer: http://kafka.ciscloudlab.link/api/v1/messages/"
+        echo "   - Consumer: http://kafka.ciscloudlab.link/api/consumer/"
         
     - name: Notify failure
       if: ${{ needs.test.result == 'failure' || needs.build-and-push.result == 'failure' || needs.deploy.result == 'failure' }}

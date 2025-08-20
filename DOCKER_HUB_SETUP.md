@@ -156,11 +156,11 @@ kubectl exec deployment/spring-kafka-consumer -n kafka-demo -- curl -f http://lo
 
 After successful deployment:
 
-- **Producer API**: http://kafka-demo.ciscloudlab.link/producer
-- **Consumer API**: http://kafka-demo.ciscloudlab.link/consumer  
-- **Producer Health**: http://kafka-demo.ciscloudlab.link/producer/actuator/health
-- **Consumer Health**: http://kafka-demo.ciscloudlab.link/consumer/api/consumer/health
-- **Consumer Stats**: http://kafka-demo.ciscloudlab.link/consumer/api/consumer/stats
+- **Producer API**: http://kafka.ciscloudlab.link/producer
+- **Consumer API**: http://kafka.ciscloudlab.link/consumer  
+- **Producer Health**: http://kafka.ciscloudlab.link/producer/actuator/health
+- **Consumer Health**: http://kafka.ciscloudlab.link/consumer/api/consumer/health
+- **Consumer Stats**: http://kafka.ciscloudlab.link/consumer/api/consumer/stats
 
 ## 🔧 Troubleshooting
 

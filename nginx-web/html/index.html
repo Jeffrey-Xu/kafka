@@ -311,13 +311,13 @@
         
         <div class="footer">
             <p>🎯 Kafka Event-Driven Architecture Demo | Nginx Web Console</p>
-            <p>Producer API: <code>http://kafka-demo.ciscloudlab.link/api/v1/messages/user</code></p>
+            <p>Producer API: <code>http://kafka.ciscloudlab.link/api/v1/messages/user</code></p>
         </div>
     </div>
 
     <script>
         // Configuration
-        const API_BASE_URL = 'http://kafka-demo.ciscloudlab.link';
+        const API_BASE_URL = 'http://kafka.ciscloudlab.link';
         
         let orderCounter = parseInt(localStorage.getItem('orderCounter') || '0');
         document.getElementById('orderCount').textContent = orderCounter;
@@ -373,7 +373,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Host': 'kafka-demo.ciscloudlab.link'
+                        'Host': 'kafka.ciscloudlab.link'
                     },
                     body: JSON.stringify(orderData)
                 });
@@ -427,7 +427,7 @@
             try {
                 // Check producer status
                 const producerResponse = await fetch(`${API_BASE_URL}/actuator/health`, {
-                    headers: { 'Host': 'kafka-demo.ciscloudlab.link' }
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
                 });
                 const producerData = await producerResponse.json();
                 document.getElementById('producerStatus').textContent = 
@@ -435,7 +435,7 @@
                 
                 // Check consumer status
                 const consumerResponse = await fetch(`${API_BASE_URL}/api/consumer/health`, {
-                    headers: { 'Host': 'kafka-demo.ciscloudlab.link' }
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
                 });
                 const consumerData = await consumerResponse.json();
                 document.getElementById('consumerStatus').textContent = 
