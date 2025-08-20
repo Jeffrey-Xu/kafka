@@ -8,6 +8,8 @@ on:
       - '.github/workflows/nginx-web.yml'
       - 'README.md'
       - 'docs/**'
+      - 'INFRASTRUCTURE_SETUP_REPORT.md'
+      - '*.md'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -15,6 +17,8 @@ on:
       - '.github/workflows/nginx-web.yml'
       - 'README.md'
       - 'docs/**'
+      - 'INFRASTRUCTURE_SETUP_REPORT.md'
+      - '*.md'
 
 env:
   DOCKER_HUB_USERNAME: jeffreyxu2025

@@ -6,11 +6,17 @@ on:
     paths:
       - 'nginx-web/**'
       - '.github/workflows/nginx-web.yml'
+    paths-ignore:
+      - '**.md'
+      - 'INFRASTRUCTURE_SETUP_REPORT.md'
   pull_request:
     branches: [ main ]
     paths:
       - 'nginx-web/**'
       - '.github/workflows/nginx-web.yml'
+    paths-ignore:
+      - '**.md'
+      - 'INFRASTRUCTURE_SETUP_REPORT.md'
   workflow_dispatch:
 
 env:
