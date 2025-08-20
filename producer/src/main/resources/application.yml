@@ -1,7 +1,7 @@
 spring:
   application:
     name: spring-kafka-producer
-    # Test comment: Workflow separation test
+    # Trigger build - minor comment update
   
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
