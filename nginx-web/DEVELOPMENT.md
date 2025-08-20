@@ -43,10 +43,23 @@ nginx-web/
 - **Health Check**: `http://kafka.ciscloudlab.link/web/nginx-health`
 
 ### **API Integration:**
-The web console integrates with the main Kafka APIs:
+The web console integrates with the main Kafka APIs using different access patterns:
+
+**For Browser-Based JavaScript (External Access):**
 - **Producer API**: `http://kafka.ciscloudlab.link/api/v1/messages/`
 - **Consumer API**: `http://kafka.ciscloudlab.link/api/consumer/`
 - **Health Checks**: `http://kafka.ciscloudlab.link/actuator/health`
+
+**For Internal Pod-to-Pod Communication (Use CoreDNS):**
+- **Producer Service**: `http://producer-service.kafka-demo.svc.cluster.local:8080`
+- **Consumer Service**: `http://consumer-service.kafka-demo.svc.cluster.local:8080`
+- **Nginx Web Service**: `http://nginx-web-console-service.kafka-demo.svc.cluster.local:80`
+
+**Important Notes:**
+- ✅ **Browser JavaScript**: Must use external URLs (`kafka.ciscloudlab.link`)
+- ✅ **Server-Side/Pod Communication**: Use internal DNS (CoreDNS) for better performance
+- ✅ **Nginx Proxy**: Can proxy internal calls to avoid CORS issues
+- ❌ **Don't Mix**: Browser can't access internal DNS, pods shouldn't use external DNS for internal calls
 
 ## 🛠️ Development Workflow
 
@@ -192,7 +205,23 @@ git commit -m "🌐 Add new order validation form"
 
 ### **Content Issues:**
 
-**1. API Calls Failing:**
+**1. API Access Patterns:**
+```bash
+# ✅ CORRECT: Browser JavaScript (external access)
+const API_BASE_URL = 'http://kafka.ciscloudlab.link';
+fetch(`${API_BASE_URL}/api/v1/messages/user`, { ... });
+
+# ✅ CORRECT: Internal pod-to-pod communication (use CoreDNS)
+curl http://producer-service.kafka-demo.svc.cluster.local:8080/api/v1/messages/health
+
+# ❌ WRONG: Don't use external DNS for internal calls
+curl http://kafka.ciscloudlab.link/api/v1/messages/health  # Slower, unnecessary
+
+# ❌ WRONG: Browser can't access internal DNS
+fetch('http://producer-service.kafka-demo.svc.cluster.local:8080/api/v1/messages/user')
+```
+
+**2. API Calls Failing:**
 ```bash
 # Ensure HTML files use correct API URLs:
 # ✅ http://kafka.ciscloudlab.link/api/v1/messages/
@@ -218,6 +247,13 @@ git commit -m "🌐 Add new order validation form"
 - **Final URLs**: Working access points
 
 ## 📝 Development Guidelines
+
+### **API Access Best Practices:**
+1. **Browser JavaScript**: Always use external URLs (`kafka.ciscloudlab.link`)
+2. **Internal Services**: Use CoreDNS for pod-to-pod communication
+3. **Performance**: Internal DNS is faster and doesn't go through load balancer
+4. **Security**: Internal DNS keeps traffic within cluster
+5. **CORS**: External URLs handle CORS properly for browser requests
 
 ### **File Editing:**
 1. **HTML Files**: Edit `html/index.html` and `html/dashboard.html` directly
@@ -245,9 +281,20 @@ git commit -m "📊 Add real-time statistics display"
 
 ### **Service Dependencies:**
 - **Producer Service**: For sending events via API
-- **Consumer Service**: For monitoring processed events
+- **Consumer Service**: For monitoring processed events  
 - **Ingress Controller**: For external access routing
 - **Main Pipeline**: Shares same namespace and ingress
+
+### **API Access Patterns:**
+```
+Browser → External DNS → Ingress → Services
+  ↓
+kafka.ciscloudlab.link/api/v1/messages/ → producer-service:8080
+
+Pod → Internal DNS (CoreDNS) → Services  
+  ↓
+producer-service.kafka-demo.svc.cluster.local:8080
+```
 
 ### **Data Flow:**
 ```
