@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kafka Order Producer - Web Console</title>
+    <title>Kafka Event Producer - Enhanced Web Console</title>
     <style>
         * {
             margin: 0;
@@ -19,7 +19,7 @@
         }
         
         .container {
-            max-width: 900px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 15px;
@@ -32,6 +32,7 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
         
         .header h1 {
@@ -39,10 +40,29 @@
             margin-bottom: 10px;
         }
         
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+        
+        .header .build-info {
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+        
         .nav {
             background: #f8f9fa;
             padding: 15px 30px;
             border-bottom: 1px solid #e1e1e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
         }
         
         .nav a {
@@ -52,16 +72,52 @@
             font-weight: 600;
             padding: 8px 16px;
             border-radius: 5px;
-            transition: background 0.3s;
+            transition: all 0.3s;
         }
         
         .nav a:hover, .nav a.active {
             background: #4CAF50;
             color: white;
+            transform: translateY(-2px);
         }
         
-        .form-container {
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 0.9em;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
             padding: 40px;
+        }
+        
+        .form-section {
+            background: white;
+        }
+        
+        .sidebar {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e1e1e1;
         }
         
         .form-group {
@@ -82,7 +138,7 @@
             border: 2px solid #e1e1e1;
             border-radius: 8px;
             font-size: 1em;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
         }
         
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
@@ -97,6 +153,49 @@
             gap: 20px;
         }
         
+        .event-type-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .event-type-card {
+            padding: 20px;
+            border: 2px solid #e1e1e1;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .event-type-card:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .event-type-card.selected {
+            border-color: #4CAF50;
+            background: #f8fff8;
+        }
+        
+        .event-type-card .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .event-type-card .title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .event-type-card .description {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
         .btn {
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
@@ -106,8 +205,10 @@
             font-size: 1.1em;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.3s ease;
             width: 100%;
+            position: relative;
+            overflow: hidden;
         }
         
         .btn:hover {
@@ -122,11 +223,33 @@
             box-shadow: none;
         }
         
+        .btn .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         .result {
             margin-top: 30px;
             padding: 20px;
             border-radius: 8px;
             display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .result.success {
@@ -141,48 +264,60 @@
             color: #721c24;
         }
         
-        .stats {
-            background: #f8f9fa;
+        .stats-card {
+            background: white;
             padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #e1e1e1;
+            transition: all 0.3s;
         }
         
-        .stats h3 {
+        .stats-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stats-card h3 {
             color: #333;
             margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .stat-item {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
-            border-bottom: 1px solid #e1e1e1;
+            border-bottom: 1px solid #f0f0f0;
         }
         
         .stat-item:last-child {
             border-bottom: none;
         }
         
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
+        .stat-value {
+            font-weight: 600;
+            color: #4CAF50;
         }
         
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4CAF50;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
+        .recent-events {
+            max-height: 300px;
+            overflow-y: auto;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .event-item {
+            padding: 10px;
+            border-left: 4px solid #4CAF50;
+            background: #f8fff8;
+            margin-bottom: 10px;
+            border-radius: 0 5px 5px 0;
+            font-size: 0.9em;
+        }
+        
+        .event-time {
+            color: #666;
+            font-size: 0.8em;
         }
         
         .footer {
@@ -192,236 +327,530 @@
             color: #666;
             border-top: 1px solid #e1e1e1;
         }
+        
+        .api-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .event-type-selector {
+                grid-template-columns: 1fr;
+            }
+            
+            .nav {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛒 Kafka Order Producer</h1>
-            <p>Submit orders and watch them flow through the Kafka pipeline</p>
-            <p><small>Build: 2025-08-18T17:18:00Z - Fixed Non-Root Nginx</small></p>
+            <h1>🚀 Kafka Event Producer</h1>
+            <p class="subtitle">Enhanced Web Console for Event-Driven Architecture</p>
+            <p class="build-info">Build: 2025-08-20T15:55:00Z - Enhanced UI/UX</p>
         </div>
         
         <div class="nav">
-            <a href="/" class="active">🛒 Order Form</a>
-            <a href="/dashboard.html">📊 Consumer Dashboard</a>
-            <a href="#" onclick="checkSystemHealth()">🏥 System Health</a>
+            <div class="nav-links">
+                <a href="/" class="active">🎯 Event Producer</a>
+                <a href="/dashboard.html">📊 Consumer Dashboard</a>
+                <a href="#" onclick="openHealthCheck()">🏥 System Health</a>
+                <a href="#" onclick="showApiDocs()">📖 API Docs</a>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="systemStatus">System Online</span>
+            </div>
         </div>
         
-        <div class="form-container">
-            <form id="orderForm">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="customerId">Customer ID</label>
-                        <input type="text" id="customerId" name="customerId" required placeholder="Auto-generated">
+        <div class="main-content">
+            <div class="form-section">
+                <h2 style="margin-bottom: 25px; color: #333;">📝 Create New Event</h2>
+                
+                <div class="event-type-selector">
+                    <div class="event-type-card" data-type="user" onclick="selectEventType('user')">
+                        <div class="icon">👤</div>
+                        <div class="title">User Event</div>
+                        <div class="description">User actions, logins, registrations</div>
                     </div>
-                    <div class="form-group">
-                        <label for="customerEmail">Customer Email</label>
-                        <input type="email" id="customerEmail" name="customerEmail" required placeholder="customer@example.com">
+                    <div class="event-type-card" data-type="business" onclick="selectEventType('business')">
+                        <div class="icon">💼</div>
+                        <div class="title">Business Event</div>
+                        <div class="description">Orders, payments, transactions</div>
+                    </div>
+                    <div class="event-type-card" data-type="system" onclick="selectEventType('system')">
+                        <div class="icon">⚙️</div>
+                        <div class="title">System Event</div>
+                        <div class="description">Logs, alerts, monitoring</div>
                     </div>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="productName">Product Name</label>
-                        <input type="text" id="productName" name="productName" required placeholder="e.g., Wireless Headphones">
+                <form id="eventForm">
+                    <div id="userEventForm" class="event-form" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="userId">User ID</label>
+                                <input type="text" id="userId" name="userId" required placeholder="user-12345">
+                            </div>
+                            <div class="form-group">
+                                <label for="userAction">Action</label>
+                                <select id="userAction" name="userAction" required>
+                                    <option value="">Select Action</option>
+                                    <option value="LOGIN">Login</option>
+                                    <option value="LOGOUT">Logout</option>
+                                    <option value="REGISTER">Register</option>
+                                    <option value="PROFILE_UPDATE">Profile Update</option>
+                                    <option value="PASSWORD_CHANGE">Password Change</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="sessionId">Session ID</label>
+                                <input type="text" id="sessionId" name="sessionId" placeholder="Auto-generated">
+                            </div>
+                            <div class="form-group">
+                                <label for="ipAddress">IP Address</label>
+                                <input type="text" id="ipAddress" name="ipAddress" placeholder="192.168.1.100">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="userAgent">User Agent</label>
+                            <input type="text" id="userAgent" name="userAgent" placeholder="Browser/Device information">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="productCategory">Category</label>
-                        <select id="productCategory" name="productCategory" required>
-                            <option value="">Select Category</option>
-                            <option value="ELECTRONICS">Electronics</option>
-                            <option value="CLOTHING">Clothing</option>
-                            <option value="BOOKS">Books</option>
-                            <option value="HOME">Home & Garden</option>
-                            <option value="SPORTS">Sports</option>
-                            <option value="FOOD">Food & Beverages</option>
-                        </select>
+                    
+                    <div id="businessEventForm" class="event-form" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="orderId">Order ID</label>
+                                <input type="text" id="orderId" name="orderId" required placeholder="order-12345">
+                            </div>
+                            <div class="form-group">
+                                <label for="customerId">Customer ID</label>
+                                <input type="text" id="customerId" name="customerId" required placeholder="customer-12345">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="amount">Amount ($)</label>
+                                <input type="number" id="amount" name="amount" required min="0" step="0.01" placeholder="99.99">
+                            </div>
+                            <div class="form-group">
+                                <label for="currency">Currency</label>
+                                <select id="currency" name="currency" required>
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                    <option value="CAD">CAD</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="paymentMethod">Payment Method</label>
+                                <select id="paymentMethod" name="paymentMethod" required>
+                                    <option value="">Select Payment</option>
+                                    <option value="CREDIT_CARD">Credit Card</option>
+                                    <option value="DEBIT_CARD">Debit Card</option>
+                                    <option value="PAYPAL">PayPal</option>
+                                    <option value="APPLE_PAY">Apple Pay</option>
+                                    <option value="GOOGLE_PAY">Google Pay</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="orderStatus">Order Status</label>
+                                <select id="orderStatus" name="orderStatus" required>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="CONFIRMED">Confirmed</option>
+                                    <option value="PROCESSING">Processing</option>
+                                    <option value="SHIPPED">Shipped</option>
+                                    <option value="DELIVERED">Delivered</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="billingAddress">Billing Address</label>
+                            <textarea id="billingAddress" name="billingAddress" rows="3" placeholder="123 Main St, City, State, ZIP"></textarea>
+                        </div>
                     </div>
-                </div>
+                    
+                    <div id="systemEventForm" class="event-form" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="component">Component</label>
+                                <input type="text" id="component" name="component" required placeholder="web-console">
+                            </div>
+                            <div class="form-group">
+                                <label for="level">Log Level</label>
+                                <select id="level" name="level" required>
+                                    <option value="INFO">INFO</option>
+                                    <option value="WARN">WARN</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="DEBUG">DEBUG</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" required rows="3" placeholder="System event description"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="source">Source</label>
+                        <input type="text" id="source" name="source" value="enhanced-web-console" readonly>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="submitBtn">
+                        <span class="loading-spinner"></span>
+                        <span class="btn-text">🚀 Send Event</span>
+                    </button>
+                </form>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="quantity">Quantity</label>
-                        <input type="number" id="quantity" name="quantity" required min="1" value="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="price">Price ($)</label>
-                        <input type="number" id="price" name="price" required min="0" step="0.01" placeholder="99.99">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="shippingAddress">Shipping Address</label>
-                    <textarea id="shippingAddress" name="shippingAddress" required rows="3" placeholder="123 Main St, City, State, ZIP"></textarea>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="paymentMethod">Payment Method</label>
-                        <select id="paymentMethod" name="paymentMethod" required>
-                            <option value="">Select Payment</option>
-                            <option value="CREDIT_CARD">Credit Card</option>
-                            <option value="DEBIT_CARD">Debit Card</option>
-                            <option value="PAYPAL">PayPal</option>
-                            <option value="APPLE_PAY">Apple Pay</option>
-                            <option value="GOOGLE_PAY">Google Pay</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="priority">Order Priority</label>
-                        <select id="priority" name="priority" required>
-                            <option value="STANDARD">Standard</option>
-                            <option value="EXPRESS">Express</option>
-                            <option value="OVERNIGHT">Overnight</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn" id="submitBtn">🚀 Submit Order</button>
-            </form>
-            
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Processing order...</p>
+                <div class="result" id="result"></div>
             </div>
             
-            <div class="result" id="result"></div>
-            
-            <div class="stats">
-                <h3>📊 System Status</h3>
-                <div class="stat-item">
-                    <span>Producer Status:</span>
-                    <span id="producerStatus">Checking...</span>
+            <div class="sidebar">
+                <div class="stats-card">
+                    <h3>📊 System Status</h3>
+                    <div class="stat-item">
+                        <span>Producer Status:</span>
+                        <span class="stat-value" id="producerStatus">Checking...</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Consumer Status:</span>
+                        <span class="stat-value" id="consumerStatus">Checking...</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Events Sent:</span>
+                        <span class="stat-value" id="eventCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Success Rate:</span>
+                        <span class="stat-value" id="successRate">100%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Last Updated:</span>
+                        <span class="stat-value" id="lastUpdated">Never</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span>Consumer Status:</span>
-                    <span id="consumerStatus">Checking...</span>
+                
+                <div class="stats-card">
+                    <h3>📈 Producer Stats</h3>
+                    <div class="stat-item">
+                        <span>Total Messages:</span>
+                        <span class="stat-value" id="totalMessages">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Success Rate:</span>
+                        <span class="stat-value" id="producerSuccessRate">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Avg Latency:</span>
+                        <span class="stat-value" id="avgLatency">0ms</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Uptime:</span>
+                        <span class="stat-value" id="uptime">0s</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span>Orders Submitted:</span>
-                    <span id="orderCount">0</span>
-                </div>
-                <div class="stat-item">
-                    <span>Last Updated:</span>
-                    <span id="lastUpdated">Never</span>
+                
+                <div class="stats-card">
+                    <h3>🔄 Recent Events</h3>
+                    <div class="recent-events" id="recentEvents">
+                        <div class="event-item">
+                            <div>No events sent yet</div>
+                            <div class="event-time">Start by creating your first event</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div class="footer">
-            <p>🎯 Kafka Event-Driven Architecture Demo | Nginx Web Console</p>
-            <p>Producer API: <code>http://kafka.ciscloudlab.link/api/v1/messages/user</code></p>
+            <p>🎯 Enhanced Kafka Event-Driven Architecture Demo | Web Console v2.0</p>
+            <div class="api-info">
+                <strong>API Endpoints:</strong><br>
+                Producer: http://kafka.ciscloudlab.link/api/v1/messages/<br>
+                Consumer: http://kafka.ciscloudlab.link/api/consumer/<br>
+                Health: http://kafka.ciscloudlab.link/actuator/health
+            </div>
         </div>
     </div>
-
     <script>
         // Configuration
         const API_BASE_URL = 'http://kafka.ciscloudlab.link';
         
-        let orderCounter = parseInt(localStorage.getItem('orderCounter') || '0');
-        document.getElementById('orderCount').textContent = orderCounter;
+        // State management
+        let eventCounter = parseInt(localStorage.getItem('eventCounter') || '0');
+        let successfulEvents = parseInt(localStorage.getItem('successfulEvents') || '0');
+        let recentEvents = JSON.parse(localStorage.getItem('recentEvents') || '[]');
+        let selectedEventType = null;
         
-        // Auto-generate customer ID
-        document.getElementById('customerId').value = 'CUST-' + Date.now();
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updateEventCount();
+            loadRecentEvents();
+            checkSystemStatus();
+            
+            // Auto-refresh status every 30 seconds
+            setInterval(checkSystemStatus, 30000);
+            setInterval(loadProducerStats, 45000);
+            
+            // Auto-generate IDs
+            generateAutoIds();
+        });
         
-        // Check system status on load
-        checkSystemStatus();
+        function selectEventType(type) {
+            selectedEventType = type;
+            
+            // Update UI
+            document.querySelectorAll('.event-type-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`[data-type="${type}"]`).classList.add('selected');
+            
+            // Show appropriate form
+            document.querySelectorAll('.event-form').forEach(form => {
+                form.style.display = 'none';
+            });
+            document.getElementById(`${type}EventForm`).style.display = 'block';
+            
+            // Generate appropriate IDs
+            generateAutoIds();
+        }
         
-        // Auto-refresh status every 30 seconds
-        setInterval(checkSystemStatus, 30000);
+        function generateAutoIds() {
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 1000);
+            
+            if (selectedEventType === 'user') {
+                document.getElementById('userId').value = `user-${timestamp}`;
+                document.getElementById('sessionId').value = `session-${timestamp}-${random}`;
+            } else if (selectedEventType === 'business') {
+                document.getElementById('orderId').value = `order-${timestamp}`;
+                document.getElementById('customerId').value = `customer-${timestamp}`;
+            } else if (selectedEventType === 'system') {
+                document.getElementById('component').value = 'enhanced-web-console';
+            }
+        }
         
-        document.getElementById('orderForm').addEventListener('submit', async function(e) {
+        document.getElementById('eventForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const loading = document.getElementById('loading');
-            const result = document.getElementById('result');
+            if (!selectedEventType) {
+                showResult('error', 'Please select an event type first.');
+                return;
+            }
+            
             const submitBtn = document.getElementById('submitBtn');
-            const form = e.target;
+            const btnText = submitBtn.querySelector('.btn-text');
+            const spinner = submitBtn.querySelector('.loading-spinner');
+            const result = document.getElementById('result');
             
             // Show loading state
-            loading.style.display = 'block';
-            result.style.display = 'none';
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Processing...';
-            
-            // Collect form data
-            const formData = new FormData(form);
-            const orderData = {
-                eventType: "USER_EVENT",
-                id: "ORDER-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
-                source: "nginx-web-console",
-                userId: formData.get('customerId'),
-                action: "PURCHASE",
-                sessionId: "WEB-" + Date.now(),
-                metadata: {
-                    customerEmail: formData.get('customerEmail'),
-                    productName: formData.get('productName'),
-                    productCategory: formData.get('productCategory'),
-                    quantity: parseInt(formData.get('quantity')),
-                    price: parseFloat(formData.get('price')),
-                    totalAmount: parseInt(formData.get('quantity')) * parseFloat(formData.get('price')),
-                    shippingAddress: formData.get('shippingAddress'),
-                    paymentMethod: formData.get('paymentMethod'),
-                    priority: formData.get('priority'),
-                    orderTimestamp: new Date().toISOString()
-                }
-            };
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'Sending Event...';
+            result.style.display = 'none';
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/v1/messages/user`, {
+                const eventData = buildEventData();
+                const endpoint = getEventEndpoint();
+                
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Host': 'kafka.ciscloudlab.link'
                     },
-                    body: JSON.stringify(orderData)
+                    body: JSON.stringify(eventData)
                 });
                 
                 const responseData = await response.json();
                 
-                loading.style.display = 'none';
-                result.style.display = 'block';
-                
-                if (response.ok && responseData.success) {
-                    result.className = 'result success';
-                    result.innerHTML = `
-                        <h3>✅ Order Submitted Successfully!</h3>
-                        <p><strong>Order ID:</strong> ${responseData.messageId}</p>
-                        <p><strong>Description:</strong> ${responseData.description}</p>
-                        <p><strong>Total Amount:</strong> $${orderData.metadata.totalAmount.toFixed(2)}</p>
-                        <p><strong>Priority:</strong> ${orderData.metadata.priority}</p>
-                        <p>Your order has been sent to the Kafka pipeline for processing.</p>
-                        <p><a href="/dashboard.html" style="color: #4CAF50;">📊 View in Dashboard</a></p>
-                    `;
-                    
-                    // Increment counter
-                    orderCounter++;
-                    localStorage.setItem('orderCounter', orderCounter.toString());
-                    document.getElementById('orderCount').textContent = orderCounter;
-                    
-                    // Reset form
-                    form.reset();
-                    document.getElementById('customerId').value = 'CUST-' + Date.now();
-                    
+                if (response.ok && (responseData.success || responseData.messageId)) {
+                    handleSuccessfulEvent(responseData, eventData);
                 } else {
-                    throw new Error(responseData.message || 'Failed to submit order');
+                    throw new Error(responseData.message || 'Failed to send event');
                 }
                 
             } catch (error) {
-                loading.style.display = 'none';
-                result.style.display = 'block';
-                result.className = 'result error';
-                result.innerHTML = `
-                    <h3>❌ Order Submission Failed</h3>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <p>Please check your input and try again.</p>
-                `;
+                handleEventError(error);
             } finally {
+                // Reset button state
                 submitBtn.disabled = false;
-                submitBtn.textContent = '🚀 Submit Order';
+                spinner.style.display = 'none';
+                btnText.textContent = '🚀 Send Event';
             }
         });
+        
+        function buildEventData() {
+            const baseData = {
+                eventType: selectedEventType.toUpperCase() + '_EVENT',
+                source: document.getElementById('source').value,
+                correlationId: `web-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                timestamp: new Date().toISOString()
+            };
+            
+            if (selectedEventType === 'user') {
+                return {
+                    ...baseData,
+                    userId: document.getElementById('userId').value,
+                    action: document.getElementById('userAction').value,
+                    sessionId: document.getElementById('sessionId').value,
+                    ipAddress: document.getElementById('ipAddress').value || '192.168.1.100',
+                    userAgent: document.getElementById('userAgent').value || 'Enhanced-Web-Console/2.0'
+                };
+            } else if (selectedEventType === 'business') {
+                return {
+                    ...baseData,
+                    orderId: document.getElementById('orderId').value,
+                    customerId: document.getElementById('customerId').value,
+                    amount: parseFloat(document.getElementById('amount').value),
+                    currency: document.getElementById('currency').value,
+                    paymentMethod: document.getElementById('paymentMethod').value,
+                    orderStatus: document.getElementById('orderStatus').value,
+                    billingAddress: document.getElementById('billingAddress').value
+                };
+            } else if (selectedEventType === 'system') {
+                return {
+                    ...baseData,
+                    component: document.getElementById('component').value,
+                    level: document.getElementById('level').value,
+                    message: document.getElementById('message').value
+                };
+            }
+        }
+        
+        function getEventEndpoint() {
+            switch (selectedEventType) {
+                case 'user': return '/api/v1/messages/user';
+                case 'business': return '/api/v1/messages/business';
+                case 'system': return '/api/v1/messages/system';
+                default: return '/api/v1/messages/user';
+            }
+        }
+        
+        function handleSuccessfulEvent(responseData, eventData) {
+            eventCounter++;
+            successfulEvents++;
+            
+            // Add to recent events
+            const eventItem = {
+                id: responseData.messageId || responseData.id || `event-${Date.now()}`,
+                type: selectedEventType,
+                description: getEventDescription(eventData),
+                timestamp: new Date().toISOString(),
+                status: 'success'
+            };
+            
+            recentEvents.unshift(eventItem);
+            if (recentEvents.length > 10) recentEvents.pop();
+            
+            // Save to localStorage
+            localStorage.setItem('eventCounter', eventCounter.toString());
+            localStorage.setItem('successfulEvents', successfulEvents.toString());
+            localStorage.setItem('recentEvents', JSON.stringify(recentEvents));
+            
+            // Update UI
+            updateEventCount();
+            loadRecentEvents();
+            
+            // Show success message
+            showResult('success', `
+                <h3>✅ Event Sent Successfully!</h3>
+                <p><strong>Event ID:</strong> ${eventItem.id}</p>
+                <p><strong>Type:</strong> ${selectedEventType.toUpperCase()}_EVENT</p>
+                <p><strong>Description:</strong> ${eventItem.description}</p>
+                <p>Your event has been sent to the Kafka pipeline for processing.</p>
+                <p><a href="/dashboard.html" style="color: #4CAF50;">📊 View in Dashboard</a></p>
+            `);
+            
+            // Reset form
+            document.getElementById('eventForm').reset();
+            generateAutoIds();
+        }
+        
+        function handleEventError(error) {
+            showResult('error', `
+                <h3>❌ Event Submission Failed</h3>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p>Please check your input and try again.</p>
+                <p>If the problem persists, check the system status above.</p>
+            `);
+        }
+        
+        function getEventDescription(eventData) {
+            switch (selectedEventType) {
+                case 'user':
+                    return `User ${eventData.userId} performed ${eventData.action}`;
+                case 'business':
+                    return `Order ${eventData.orderId} - $${eventData.amount} ${eventData.currency}`;
+                case 'system':
+                    return `${eventData.level}: ${eventData.message.substring(0, 50)}...`;
+                default:
+                    return 'Event processed';
+            }
+        }
+        
+        function showResult(type, content) {
+            const result = document.getElementById('result');
+            result.className = `result ${type}`;
+            result.innerHTML = content;
+            result.style.display = 'block';
+            
+            // Auto-hide after 10 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    result.style.display = 'none';
+                }, 10000);
+            }
+        }
+        
+        function updateEventCount() {
+            document.getElementById('eventCount').textContent = eventCounter;
+            const successRate = eventCounter > 0 ? Math.round((successfulEvents / eventCounter) * 100) : 100;
+            document.getElementById('successRate').textContent = `${successRate}%`;
+        }
+        
+        function loadRecentEvents() {
+            const container = document.getElementById('recentEvents');
+            
+            if (recentEvents.length === 0) {
+                container.innerHTML = `
+                    <div class="event-item">
+                        <div>No events sent yet</div>
+                        <div class="event-time">Start by creating your first event</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = recentEvents.map(event => `
+                <div class="event-item">
+                    <div><strong>${event.type.toUpperCase()}</strong>: ${event.description}</div>
+                    <div class="event-time">${new Date(event.timestamp).toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
         
         async function checkSystemStatus() {
             try {
@@ -441,19 +870,77 @@
                 document.getElementById('consumerStatus').textContent = 
                     consumerData.status === 'UP' ? '🟢 Online' : '🔴 Offline';
                 
+                // Update system status indicator
+                const allOnline = producerData.status === 'UP' && consumerData.status === 'UP';
+                document.getElementById('systemStatus').textContent = 
+                    allOnline ? 'System Online' : 'System Issues';
+                
                 document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+                
+                // Load producer stats
+                loadProducerStats();
                     
             } catch (error) {
                 document.getElementById('producerStatus').textContent = '🔴 Error';
                 document.getElementById('consumerStatus').textContent = '🔴 Error';
+                document.getElementById('systemStatus').textContent = 'Connection Error';
                 console.error('Status check failed:', error);
             }
         }
         
-        async function checkSystemHealth() {
-            alert('System Health Check:\n\nThis will open the detailed health status in a new window.');
+        async function loadProducerStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/messages/stats`, {
+                    headers: { 'Host': 'kafka.ciscloudlab.link' }
+                });
+                const data = await response.json();
+                
+                document.getElementById('totalMessages').textContent = data.totalMessages || 0;
+                document.getElementById('producerSuccessRate').textContent = `${data.successRate || 0}%`;
+                document.getElementById('avgLatency').textContent = `${Math.round(data.averageProcessingTimeMs || 0)}ms`;
+                
+                if (data.runtimeStats && data.runtimeStats.uptime) {
+                    const uptimeMinutes = Math.round(data.runtimeStats.uptime / 60);
+                    document.getElementById('uptime').textContent = `${uptimeMinutes}m`;
+                }
+                
+            } catch (error) {
+                console.error('Failed to load producer stats:', error);
+            }
+        }
+        
+        function openHealthCheck() {
             window.open(`${API_BASE_URL}/actuator/health`, '_blank');
         }
+        
+        function showApiDocs() {
+            const apiInfo = `
+API Documentation:
+
+Producer Endpoints:
+• POST /api/v1/messages/user - Send user events
+• POST /api/v1/messages/business - Send business events  
+• POST /api/v1/messages/system - Send system events
+• GET /api/v1/messages/stats - Get producer statistics
+• GET /api/v1/messages/health - Producer health check
+
+Consumer Endpoints:
+• GET /api/consumer/health - Consumer health check
+• GET /api/consumer/stats - Consumer statistics
+
+System Endpoints:
+• GET /actuator/health - System health check
+• GET /actuator/info - System information
+
+Base URL: ${API_BASE_URL}
+            `;
+            alert(apiInfo);
+        }
+        
+        // Auto-select user event type by default
+        setTimeout(() => {
+            selectEventType('user');
+        }, 100);
     </script>
 </body>
 </html>
