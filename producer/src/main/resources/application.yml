@@ -1,7 +1,7 @@
 spring:
   application:
     name: spring-kafka-producer
-    # Trigger build - minor comment update
+    # Trigger build - verify CI/CD pipeline
   
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
