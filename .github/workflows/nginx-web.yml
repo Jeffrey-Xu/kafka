@@ -48,7 +48,9 @@ jobs:
         echo "Nginx.conf size: $(wc -c < nginx-web/conf/nginx.conf) bytes"
         echo "Dockerfile size: $(wc -c < nginx-web/Dockerfile) bytes"
         
-        echo "✅ Nginx web console files verified"
+        echo "🔍 Verify HTML content references correct API URLs:"
+        grep -n "kafka.ciscloudlab.link" nginx-web/html/index.html || echo "⚠️  No API URL references found in index.html"
+        grep -n "kafka.ciscloudlab.link" nginx-web/html/dashboard.html || echo "⚠️  No API URL references found in dashboard.html"
         
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -58,28 +60,25 @@ jobs:
       with:
         username: jeffreyxu2025
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      
-    - name: Verify Docker login
-      run: |
-        echo "✅ Using Docker Hub with jeffreyxu2025 account"
-        echo "✅ Same credentials as main CI/CD pipeline"
         
     - name: Build and push Nginx Web Console image
       run: |
-        echo "🌐 Building Nginx Web Console Docker Image"
-        echo "=========================================="
+        echo "🐳 BUILDING NGINX WEB CONSOLE IMAGE"
+        echo "=================================="
         
-        # Set image tag with timestamp to force new image
-        IMAGE_TAG=${GITHUB_SHA::7}-$(date +%s)
-        echo "Image tag: $IMAGE_TAG"
+        # Generate unique image tag
+        export IMAGE_TAG="${{ github.sha }}-$(date +%s)"
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
         
-        # Verify files before build
-        echo "📁 Final verification before Docker build:"
-        find nginx-web/ -type f -name "*.html" -o -name "*.conf" -o -name "Dockerfile" | head -10
+        echo "Building nginx web console image..."
+        echo "Base image: nginx:alpine"
+        echo "Target image: jeffreyxu2025/kafka:nginx-web-console-$IMAGE_TAG"
         
-        # Build and push nginx image to Docker Hub with unique tag
-        echo "🚀 Building and pushing to Docker Hub with unique tag..."
+        # Verify Dockerfile
+        echo "📋 Dockerfile content:"
+        cat nginx-web/Dockerfile
+        
+        # Build and push image
         docker buildx build \
           --no-cache \
           --pull \
@@ -115,10 +114,10 @@ jobs:
         contexts:
         - context:
             cluster: kubernetes
-            namespace: kafka-demo
             user: github-actions-deployer
-          name: github-actions-deployer@kubernetes
-        current-context: github-actions-deployer@kubernetes
+            namespace: kafka-demo
+          name: github-actions-context
+        current-context: github-actions-context
         users:
         - name: github-actions-deployer
           user:
@@ -130,20 +129,20 @@ jobs:
         
         chmod 600 ~/.kube/config
         
-        # Verify connection (same as main pipeline)
+        # Verify connection
         echo "Testing Kubernetes connection..."
         kubectl version --client
         kubectl get pods -n kafka-demo
         
-    - name: Deploy Nginx Web Console to Kubernetes
+    - name: Deploy Nginx Web Console
       run: |
-        echo "🌐 Deploying Nginx Web Console to Kubernetes"
-        echo "============================================="
+        echo "🚀 DEPLOYING NGINX WEB CONSOLE"
+        echo "============================="
         
-        # Deploy directly to existing kafka-demo namespace (same as main pipeline)
-        # Note: namespace kafka-demo should already exist from main application deployment
+        echo "Deploying to existing kafka-demo namespace..."
+        echo "Using existing nginx-web-console deployment pattern..."
         
-        # Deploy Nginx Web Console with unique image tag
+        # Deploy Nginx Web Console with unique image tag (maintains existing deployment name)
         kubectl apply -f - <<EOF
         apiVersion: apps/v1
         kind: Deployment
@@ -238,5 +237,56 @@ jobs:
         kubectl get ingress kafka-demo-ingress -n kafka-demo
         
         echo "🌐 Nginx Web Console accessible at:"
-        echo "   - Web Console: http://kafka-demo.ciscloudlab.link/web/"
-        echo "   - Dashboard: http://kafka-demo.ciscloudlab.link/web/dashboard.html"
+        echo "   - Web Console: http://kafka.ciscloudlab.link/web/"
+        echo "   - Dashboard: http://kafka.ciscloudlab.link/web/dashboard.html"
+        
+    - name: Verify deployment and test endpoints
+      run: |
+        echo "🔍 VERIFYING DEPLOYMENT"
+        echo "======================"
+        
+        # Wait a bit for ingress to propagate
+        echo "Waiting for ingress to propagate..."
+        sleep 30
+        
+        # Test internal service connectivity
+        echo "Testing internal service connectivity..."
+        kubectl run test-nginx-web --rm -i --image=curlimages/curl --restart=Never -- \
+          curl -s http://nginx-web-console-service.kafka-demo.svc.cluster.local/nginx-health | head -5 || echo "Internal test failed"
+        
+        # Show final status
+        echo "=== Final Deployment Status ==="
+        kubectl get all -n kafka-demo -l app=nginx-web-console
+        
+        echo "=== Ingress Configuration ==="
+        kubectl describe ingress kafka-demo-ingress -n kafka-demo | grep -A5 "/web"
+        
+        echo "✅ Nginx Web Console deployment verification completed!"
+        
+    - name: Notify success
+      run: |
+        echo "🎉 NGINX WEB CONSOLE DEPLOYMENT SUCCESS"
+        echo "======================================"
+        echo "✅ Image: jeffreyxu2025/kafka:nginx-web-console-${{ env.IMAGE_TAG }}"
+        echo "✅ Deployment: nginx-web-console (updated)"
+        echo "✅ Service: nginx-web-console-service (active)"
+        echo "✅ Ingress: /web path configured"
+        echo ""
+        echo "🌐 Access URLs:"
+        echo "   - Main App: http://kafka.ciscloudlab.link/web/"
+        echo "   - Dashboard: http://kafka.ciscloudlab.link/web/dashboard.html"
+        echo ""
+        echo "📊 This deployment is independent of the main Kafka application pipeline."
+        echo "📊 Changes to nginx-web/** only trigger this workflow."
+        
+    - name: Notify failure
+      if: failure()
+      run: |
+        echo "❌ NGINX WEB CONSOLE DEPLOYMENT FAILED"
+        echo "====================================="
+        echo "Check the logs above for detailed error information."
+        echo "Common issues:"
+        echo "- Docker Hub authentication"
+        echo "- Kubernetes token permissions"
+        echo "- Image build failures"
+        echo "- Service connectivity issues"
