@@ -402,7 +402,7 @@ jobs:
                 - name: SPRING_DATASOURCE_PASSWORD
                   value: kafka_password
                 - name: KAFKA_BOOTSTRAP_SERVERS
-                  value: "52.91.177.171:9092"
+                  value: "kafka-service.kafka-system.svc.cluster.local:9092"
                 resources:
                   requests:
                     memory: 256Mi
@@ -469,9 +469,9 @@ jobs:
                 - name: SPRING_DATASOURCE_PASSWORD
                   value: kafka_password
                 - name: KAFKA_BOOTSTRAP_SERVERS
-                  value: "52.91.177.171:9092"
+                  value: "kafka-service.kafka-system.svc.cluster.local:9092"
                 - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-                  value: "52.91.177.171:9092"
+                  value: "kafka-service.kafka-system.svc.cluster.local:9092"
                 - name: SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER
                   value: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
                 - name: SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_DESERIALIZER_VALUE_DELEGATE_CLASS
